@@ -1,0 +1,22 @@
+#!/bin/sh
+
+git stash -q --keep-index
+
+echo "*****Running Test Cases******"
+
+npm test --watchAll=false
+
+if [ $testStatus != 0 ]
+then
+  exit $testStatus
+fi
+
+echo "*****Checking the Linting******"
+
+npm run lint
+
+status=$?
+
+git stash pop -q
+
+exit $status
