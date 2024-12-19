@@ -36,7 +36,7 @@ function RedisService() {
   };
 
   this.config = async () => {
-    await this.cacheClient.configSet("notify-keyspace-events", "Ex");
+    await this.cacheClient.configSet("notify-keyspace-events", "KAE");
   };
 
   this.get = async (cacheKey) => {
@@ -47,7 +47,6 @@ function RedisService() {
   this.set = (cacheKey, data, expiryTime) =>
     this.cacheClient.set(cacheKey, JSON.stringify(data), {
       EX: expiryTime,
-      NX: true,
     });
 
   this.del = (cacheKey) => this.cacheClient.del(cacheKey);

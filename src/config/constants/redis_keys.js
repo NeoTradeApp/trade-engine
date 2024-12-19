@@ -1,6 +1,9 @@
 const KOTAK_NEO = {
   ACCESS_TOKEN: "REDIS/KOTAK_NEO/ACCESS_TOKEN",
-  HS_WEB_SOCKET_CREDENTIALS: "REDIS/KOTAK_NEO/HS_WEB_SOCKET_CREDENTIALS",
+};
+
+const HS_WEB_SOCKET = {
+  CREDENTIALS: "REDIS/HS_WEB_SOCKET/CREDENTIALS",
 };
 
 const databaseIndex = 0;
@@ -13,6 +16,7 @@ const CHANNEL = {
 module.exports = {
   REDIS: {
     KOTAK_NEO,
+    HS_WEB_SOCKET,
     CHANNEL,
   },
 };

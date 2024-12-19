@@ -42,10 +42,8 @@ function HSWebSocketService() {
       };
 
       this.userWS.onclose = () => {
-        // this.userWS = null;
         this.healthCheckStatus = false;
         logger.socket("HSWeb: disconnected");
-        this.reconnect();
       };
 
       this.userWS.onerror = (error) => {
@@ -54,9 +52,7 @@ function HSWebSocketService() {
 
       this.userWS.onmessage = (rawData) => {
         const data = JSON.parse(rawData);
-        // logger.socket("HSWeb Message Received");
-
-        const [{ e: exchange }] = data || [{}];
+        const [{ e: exchange } = {}] = data || [];
         if (exchange === "nse_cm") {
           appEvents.emit(EVENT.HS_WEB_SOCKET.MARKET_FEED, data);
         }
@@ -69,21 +65,19 @@ function HSWebSocketService() {
       return this.userWS;
     } catch (error) {
       logger.error("HSWebSocketService: ", error.message);
-      this.reconnect();
     }
   };
 
-  this.reconnect = () => {
+  this.tryReconnect = () => {
     if (isMarketOpen()) {
       logger.error("HSWebSocketService: Retrying connection...");
-      setTimeout(() => !this.isOpen() && this.connect(), 2000);
-    } else {
-      this.healthCheck && clearInterval(this.healthCheck);
+      this.connect();
     }
   };
 
   this.isOpen = () => this.userWS && this.userWS.OPEN && this.userWS.readyState;
-  this.close = () => this.userWS && this.isOpen() && this.userWS.close();
+  this.close = () => this.isOpen() && this.userWS.close();
+  this.ping = () => this.isOpen() && this.userWS.ping();
 
   const subscribe = (type, scrips) =>
     this.send({
@@ -103,23 +97,27 @@ function HSWebSocketService() {
   this.resume = () => pauseOrResume("cr");
 
   const getCredentials = async () => {
-    const credentials =
-      (await redisService.get(REDIS.KOTAK_NEO.HS_WEB_SOCKET_CREDENTIALS)) || {};
+    const credentials = await redisService.get(REDIS.HS_WEB_SOCKET.CREDENTIALS);
+    const { token, sid } = credentials || {};
 
-    if (!credentials || !credentials.token || !credentials.sid) {
+    if (!token || !sid) {
       throw new Error("Token or sid is missing");
     }
 
-    return credentials;
+    return { token, sid };
   };
 
-  this.healthCheck = setInterval(() => {
+  appEvents.on(EVENT.HS_WEB_SOCKET.CREDENTIALS_UPDATED, this.tryReconnect);
+
+  this.healthCheckTimer = setInterval(() => {
     if (this.healthCheckStatus === false) {
-      return this.close();
+      this.close();
+      this.tryReconnect();
+      return;
     }
 
     this.healthCheckStatus = false;
-    this.userWS.ping();
+    this.ping();
   }, HEALTHCHECK_INTERVAL);
 }
 
