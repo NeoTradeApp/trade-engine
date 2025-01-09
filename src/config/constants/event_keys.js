@@ -1,11 +1,11 @@
-const APP = {
-  USER_SESSION_EXPIRED: "EVENT/APP/USER_SESSION_EXPIRED",
-};
+const APP = {};
 
 const REDIS = {};
 
 const KOTAK_NEO = {
-  ACCESS_TOKEN_EXPIRED: "EVENT/KOTAK_NEO/ACCESS_TOKEN_EXPIRED",
+  ACCESS_TOKEN: {
+    EXPIRED: "EVENT/KOTAK_NEO/ACCESS_TOKEN/EXPIRED",
+  },
 };
 
 const HS_WEB_SOCKET = {
@@ -18,10 +18,6 @@ const HSI_WEB_SOCKET = {
   MESSAGE: "EVENT/HSI_WEB_SOCKET/MESSAGE",
 };
 
-const WEB_SOCKET = {
-  MESSAGE: "EVENT/WEB_SOCKET/MESSAGE",
-};
-
 module.exports = {
   EVENT: {
     APP,
@@ -29,6 +25,5 @@ module.exports = {
     KOTAK_NEO,
     HS_WEB_SOCKET,
     HSI_WEB_SOCKET,
-    WEB_SOCKET,
   },
 };

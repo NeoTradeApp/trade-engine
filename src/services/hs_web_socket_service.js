@@ -97,7 +97,7 @@ function HSWebSocketService() {
   this.resume = () => pauseOrResume("cr");
 
   const getCredentials = async () => {
-    const credentials = await redisService.get(REDIS.HS_WEB_SOCKET.CREDENTIALS);
+    const credentials = await redisService.get(REDIS.KEY.HS_WEB_SOCKET.CREDENTIALS);
     const { token, sid } = credentials || {};
 
     if (!token || !sid) {

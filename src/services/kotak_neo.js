@@ -31,8 +31,8 @@ function KotakNeoService() {
 
   this.generateAccessToken = async () => {
     try {
-      await redisService.cache(
-        REDIS.KOTAK_NEO.ACCESS_TOKEN,
+      const token = await redisService.cache(
+        REDIS.KEY.KOTAK_NEO.ACCESS_TOKEN,
         async () => {
           const consumerAuthToken = CryptoJS.enc.Base64.stringify(
             CryptoJS.enc.Utf8.parse(
@@ -58,13 +58,13 @@ function KotakNeoService() {
     } catch (error) {
       logger.error(error);
       setTimeout(
-        () => appEvents.emit(EVENT.KOTAK_NEO.ACCESS_TOKEN_EXPIRED),
+        () => appEvents.emit(EVENT.KOTAK_NEO.ACCESS_TOKEN.EXPIRED),
         3000
       );
     }
   };
 
-  appEvents.on(EVENT.KOTAK_NEO.ACCESS_TOKEN_EXPIRED, this.generateAccessToken);
+  appEvents.on(EVENT.KOTAK_NEO.ACCESS_TOKEN.EXPIRED, this.generateAccessToken);
 }
 
 module.exports = { kotakNeoService: new KotakNeoService() };
