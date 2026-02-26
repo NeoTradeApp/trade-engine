@@ -52,9 +52,13 @@ function HSWebSocketService() {
 
       this.userWS.onmessage = (rawData) => {
         const data = JSON.parse(rawData);
-        const [{ e: exchange } = {}] = data || [];
+        const [first] = data || [];
+        const { e: exchange, type } = first || {};
+
         if (exchange === "nse_cm") {
           appEvents.emit(EVENT.HS_WEB_SOCKET.MARKET_FEED, data);
+        } else if (type === "opc") {
+          appEvents.emit(EVENT.HS_WEB_SOCKET.OPTIONS_CHAIN, data);
         }
       };
 
@@ -87,6 +91,15 @@ function HSWebSocketService() {
     });
   this.subscribeIndex = (scrips) => subscribe("ifs", scrips);
   this.subscribeScrips = (scrips) => subscribe("mws", scrips);
+  this.subscribeOptionsChain = (key, strikePrice, highStrike, lowStrike) =>
+    this.send({
+      type: "opc",
+      key,
+      stkprc: strikePrice,
+      highstk: highStrike,
+      lowstk: lowStrike,
+      channelnum: this.channelNumber,
+    });
 
   const pauseOrResume = (type) =>
     this.send({

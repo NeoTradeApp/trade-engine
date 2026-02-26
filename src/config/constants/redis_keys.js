@@ -12,6 +12,7 @@ const CHANNEL = {
   KEY_EXPIRY: `__keyevent@${databaseIndex}__:expired`,
   KEY_SET: `__keyevent@${databaseIndex}__:set`,
   MARKET_FEED: "REDIS/CHANNEL/MARKET_FEED",
+  OPTIONS_CHAIN: "REDIS/CHANNEL/OPTIONS_CHAIN",
 };
 
 module.exports = {

@@ -83,6 +83,9 @@ function RedisService() {
     this.eventListeners.push(
       appEvents.onEvent(EVENT.HS_WEB_SOCKET.MARKET_FEED, (data) => {
         this.publish(REDIS.CHANNEL.MARKET_FEED, data);
+      }),
+      appEvents.onEvent(EVENT.HS_WEB_SOCKET.OPTIONS_CHAIN, (data) => {
+        this.publish(REDIS.CHANNEL.OPTIONS_CHAIN, data);
       })
     );
   };
