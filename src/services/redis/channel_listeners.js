@@ -3,8 +3,8 @@ const { appEvents } = require("@events");
 const { EVENT, REDIS } = require("@constants");
 
 const keyExpiryListenerMappings = {
-  [REDIS.KEY.KOTAK_NEO.ACCESS_TOKEN]: (key) =>
-    appEvents.emit(EVENT.KOTAK_NEO.ACCESS_TOKEN.EXPIRED, key),
+  // [REDIS.KEY.KOTAK_NEO.ACCESS_TOKEN]: (key) =>
+  //   appEvents.emit(EVENT.KOTAK_NEO.ACCESS_TOKEN.EXPIRED, key),
 
   default: (key) => logger.warning("Redis: Unhandled key expiry event", key),
 };

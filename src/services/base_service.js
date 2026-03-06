@@ -9,16 +9,6 @@ function BaseService() {
     throw error;
   };
 
-  // this.withErrorCatch =
-  //   (fn) =>
-  //   async (...args) => {
-  //     try {
-  //       return await fn(...args);
-  //     } catch (error) {
-  //       this.errorHandler(error);
-  //     }
-  //   };
-
   this.callApi = async (method, path, data, options = {}) => {
     try {
       const headers = { ...this.defaultHeaders, ...options.headers };
@@ -31,6 +21,7 @@ function BaseService() {
       };
 
       const response = await axios(config);
+
       return response.data;
     } catch (error) {
       this.errorHandler(error, { method, path });

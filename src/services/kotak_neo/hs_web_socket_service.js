@@ -1,9 +1,10 @@
 const { logger } = require("winston");
 const { HSWebSocket } = require("@libs");
 const { appEvents } = require("@events");
-const { EVENT, SCRIPS, REDIS } = require("@constants");
-const { redisService } = require("./redis");
-const { isMarketOpen } = require("@utils");
+const { EVENT, REDIS } = require("@constants");
+const { isMarketOpen, isEmpty } = require("@utils");
+const { redisService } = require("../redis");
+const { marketDataParser } = require("./market_data_parser");
 
 const HEALTHCHECK_INTERVAL = 30000;
 
@@ -38,24 +39,25 @@ function HSWebSocketService() {
 
         logger.socket("HSWeb: connected");
         this.healthCheckStatus = true;
-        this.subscribeIndex(SCRIPS.NIFTY_50);
+        appEvents.emit(EVENT.HS_WEB_SOCKET.CONNECTION_OPEN);
       };
 
       this.userWS.onclose = () => {
         this.healthCheckStatus = false;
         logger.socket("HSWeb: disconnected");
+        appEvents.emit(EVENT.HS_WEB_SOCKET.CONNECTION_CLOSED);
       };
 
       this.userWS.onerror = (error) => {
         logger.error("HSWeb Error:", error);
       };
 
-      this.userWS.onmessage = (rawData) => {
-        const data = JSON.parse(rawData);
-        const [{ e: exchange } = {}] = data || [];
-        if (exchange === "nse_cm") {
-          appEvents.emit(EVENT.HS_WEB_SOCKET.MARKET_FEED, data);
-        }
+      this.userWS.onmessage = (rawDataStr) => {
+        const rawData = JSON.parse(rawDataStr);
+        const parsedData = marketDataParser.parseMarketData(rawData);
+
+        !isEmpty(parsedData) &&
+          appEvents.emit(EVENT.HS_WEB_SOCKET.MARKET_FEED, parsedData);
       };
 
       this.userWS.onpong = () => {
