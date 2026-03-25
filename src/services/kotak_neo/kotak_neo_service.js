@@ -91,7 +91,7 @@ function KotakNeoService() {
   }
 
   this.loadNiftyOptionChainScrips = async () => {
-    const lastTradedNifyValue = 23900;
+    const lastTradedNifyValue = 22900;
     const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
 
     const niftyATMStrikePrice = parseInt(lastTradedNifyValue / 50) * 50;

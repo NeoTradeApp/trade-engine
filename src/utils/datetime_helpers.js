@@ -15,7 +15,10 @@ const marketClosingTIme = todayTimeIst({ hour: 15, minute: 31 });
 const isMarketOpen = () => {
   const now = todayTimeIst();
 
-  return now.isBetween(marketOpeningTime, marketClosingTIme);
+  const day = now.day();
+  const isWeekend = day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+
+  return !isWeekend && now.isBetween(marketOpeningTime, marketClosingTIme);
 };
 
 const parseTimeToSeconds = (timeInStr) => {

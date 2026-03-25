@@ -26,8 +26,8 @@ function App() {
   };
 
   this.stop = async () => {
-    database.disconnect();
     await redisService.disconnect();
+    hsWebSocketService.disconnect();
   };
 }
 

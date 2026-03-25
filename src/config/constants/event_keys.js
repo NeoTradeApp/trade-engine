@@ -16,6 +16,12 @@ const HSI_WEB_SOCKET = {
   MESSAGE: "EVENT/HSI_WEB_SOCKET/MESSAGE",
 };
 
+const MARKET_WATCH = {
+  NIFTY_INDEX: "EVENT/MARKET_WATCH/NIFTY_INDEX",
+  NIFTY_FUTURE: "EVENT/MARKET_WATCH/NIFTY_FUTURE",
+  SCRIP: (scrip) => `EVENT/MARKET_WATCH/${scrip}`,
+};
+
 module.exports = {
   EVENT: {
     APP,
@@ -23,5 +29,6 @@ module.exports = {
     KOTAK_NEO,
     HS_WEB_SOCKET,
     HSI_WEB_SOCKET,
+    MARKET_WATCH,
   },
 };

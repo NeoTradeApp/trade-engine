@@ -10,7 +10,21 @@ function MarketDataParser() {
     this.niftyFutScrip = niftyFutScrip;
   }
 
-  const parseNiftyOptionChain = (rawData) => {
+  const parseNiftyOptionChain = (rawData, optionChain = {}) => {
+    const option = parseNiftyOption(rawData)
+    const { strikePrice, optionType } = option;
+
+    optionChain[strikePrice] ||= {};
+    optionChain[strikePrice][optionType] ||= {};
+    optionChain[strikePrice][optionType] = {
+      ...optionChain[strikePrice][optionType],
+      ...option
+    };
+
+    return optionChain;
+  }
+
+  const parseNiftyOption = (rawData) => {
     const scripDetails = this.niftyOptionChainScrips[`${rawData.e}|${rawData.tk}`];
 
     return {
@@ -67,8 +81,12 @@ function MarketDataParser() {
 
       switch (true) {
         case Object.keys(this.niftyOptionChainScrips).includes(key):
-          parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS] ||= [];
-          parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS].push(parseNiftyOptionChain(rawData));
+          // parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS] ||= [];
+          // parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS].push(parseNiftyOptionChain(rawData));
+          parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS] = parseNiftyOptionChain(
+            rawData,
+            parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS],
+          );
           break;
 
         case Object.keys(this.niftyFutScrip).includes(key):

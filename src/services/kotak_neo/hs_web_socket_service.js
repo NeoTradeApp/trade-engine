@@ -70,6 +70,11 @@ function HSWebSocketService() {
     }
   };
 
+  this.disconnect = () => {
+    this.close();
+    this.healthCheckTimer && clearInterval(this.healthCheckTimer);
+  };
+
   this.tryReconnect = () => {
     if (isMarketOpen()) {
       logger.error("HSWebSocketService: Retrying connection...");
