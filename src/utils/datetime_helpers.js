@@ -1,4 +1,5 @@
 const moment = require("moment");
+const { MARKET_HOLIDAYS } = process.env;
 
 const todayTimeIst = (time) => {
   const now = moment().utcOffset("+05:30");
@@ -8,12 +9,14 @@ const todayTimeIst = (time) => {
   return now;
 };
 
-const marketOpeningTime = todayTimeIst({ hour: 9, minute: 14 });
+const marketOpeningTime = todayTimeIst({ hour: 9, minute: 0 });
 
 const marketClosingTIme = todayTimeIst({ hour: 15, minute: 31 });
 
 const isMarketOpen = () => {
   const now = todayTimeIst();
+
+  if (MARKET_HOLIDAYS.split(",").some(holiday => moment(holiday).isSame(now, "day"))) return false;
 
   const day = now.day();
   const isWeekend = day === 0 || day === 6; // 0 = Sunday, 6 = Saturday

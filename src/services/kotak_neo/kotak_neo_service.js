@@ -63,8 +63,8 @@ function KotakNeoService() {
     }));
   };
 
-  this.loadInstruments = async (exchange) =>
-    await redisService.cache(
+  this.loadInstruments = (exchange) =>
+    redisService.cache(
       REDIS.KEY.KOTAK_NEO.MASTER_SCRIP(exchange),
       () => downloadAndParseMasterScrip(exchange),
       "24h"
@@ -88,10 +88,10 @@ function KotakNeoService() {
 
       return obj;
     }, {});
-  }
+  };
 
   this.loadNiftyOptionChainScrips = async () => {
-    const lastTradedNifyValue = 22900;
+    const lastTradedNifyValue = 22400;
     const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
 
     const niftyATMStrikePrice = parseInt(lastTradedNifyValue / 50) * 50;
@@ -100,11 +100,13 @@ function KotakNeoService() {
       (_, i) => niftyATMStrikePrice + (i - OPTION_CHAIN_DEPTH) * NIFTY_STRIKE_PRICE_INTERVAL
     );
 
-    return await findInstruments(
-      `^(NIFTY)[0-9]+(${strikePrices.join("|")})(CE|PE)$`,
+    const scrips = await findInstruments(
+      `^(NIFTY).+(${strikePrices.join("|")})(CE|PE)$`,
       niftyWeeklyExpiry
     );
-  }
+
+    return scrips;
+  };
 
   this.loadNiftyFuturesScrip = async () => {
     const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday")
@@ -113,7 +115,7 @@ function KotakNeoService() {
       `^(NIFTY)(${moment().format("YYMMM").toUpperCase()})(FUT)$`,
       niftyMonthlyExpiry
     );
-  }
+  };
 }
 
 module.exports = { kotakNeoService: new KotakNeoService() };

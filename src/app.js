@@ -1,9 +1,12 @@
-const { redisService, KotakNeo } = require("@services");
+const { redisService, KotakNeo, niftyFuturesWatchService } = require("@services");
 const { kotakNeoService, hsWebSocketService, marketDataParser } = KotakNeo;
 const { appEvents } = require("@events");
 const { EVENT, SCRIPS } = require("@constants");
+const { LongShortSyntheticFutures } = require("@strategies");
 
 function App() {
+  const longShortNifyStrategy = new LongShortSyntheticFutures();
+
   this.start = async () => {
     await redisService.connect();
 
@@ -23,11 +26,16 @@ function App() {
         ...niftyFutScrip,
       }).join("&"));
     });
+
+    niftyFuturesWatchService.start();
+    longShortNifyStrategy.activate();
   };
 
   this.stop = async () => {
     await redisService.disconnect();
     hsWebSocketService.disconnect();
+    niftyFuturesWatchService.stop();
+    longShortNifyStrategy.pause();
   };
 }
 

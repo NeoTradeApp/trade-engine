@@ -1,5 +1,3 @@
-const { EMA_PERIOD, TRENDS_CANDLE_COUNT } = require("../config");
-
 function ExponentialMovingAverage(period, trendCandleCount) {
   this.emaArray = [];
   this.period = period || 9;
@@ -15,7 +13,7 @@ function ExponentialMovingAverage(period, trendCandleCount) {
     return this.emaArray;
   };
 
-  const calculateEma = (price) =>{
+  this.calculate = (price) =>{
     if (!this.emaArray.length) {
       return price;
     }
@@ -27,8 +25,8 @@ function ExponentialMovingAverage(period, trendCandleCount) {
     return emaToday;
   }
 
-  this.update = (price) => {
-    const ema = calculateEma(price);
+  this.push = (price) => {
+    const ema = this.calculate(price);
 
     periodicPush(ema);
 
@@ -50,8 +48,4 @@ function ExponentialMovingAverage(period, trendCandleCount) {
   }
 }
 
-module.exports = {
-  eMovingAverage,
-  resetEMovingAverage,
-  getTrendFromEma,
-};
+module.exports = ExponentialMovingAverage;

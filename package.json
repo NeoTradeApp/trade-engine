@@ -20,6 +20,7 @@
     "@api": "src/routes/api",
     "@models": "src/models",
     "@services": "src/services",
+    "@strategies": "src/strategies",
     "@events": "src/events",
     "@libs": "src/libs",
     "@error_handlers": "src/error_handlers",

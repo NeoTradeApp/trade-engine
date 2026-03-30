@@ -18,6 +18,17 @@ const isEmpty = (entity) => {
   if (typeof entity === "object") return !Object.keys(entity).length;
 
   return !entity;
-}
+};
 
-module.exports = { selectKeys, getErrorMessage, isEmpty };
+const generateRandomId = (length = 10) => {
+  const chars = 'ABCDEF0123456789';
+  let jobId = '';
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * chars.length);
+    jobId += chars[randomIndex];
+  }
+
+  return jobId;
+};
+
+module.exports = { selectKeys, getErrorMessage, isEmpty, generateRandomId };

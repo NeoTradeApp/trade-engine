@@ -1,3 +1,5 @@
-const { marketWatchService } = require("./market_watch_service");
+const { niftyFuturesWatchService } = require("./nifty_futures_watch_service");
 
-module.exports = { marketWatchService };
+module.exports = {
+  niftyFuturesWatchService
+};
