@@ -6,6 +6,10 @@ dotEnv.config();
 const { logger } = require("@config/logger");
 logger.config();
 
+const Database = require("@database");
+const database = new Database();
+database.connect();
+
 const App = require("./src/app");
 const app = new App();
 app.start();

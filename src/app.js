@@ -1,15 +1,40 @@
-const { redisService, KotakNeo, niftyFuturesWatchService } = require("@services");
+const { redisService, KotakNeo, niftyFuturesWatchService: niftyFutures } = require("@services");
 const { kotakNeoService, hsWebSocketService, marketDataParser } = KotakNeo;
 const { appEvents } = require("@events");
 const { EVENT, SCRIPS } = require("@constants");
-const { LongShortSyntheticFutures } = require("@strategies");
+const { UserStrategies } = require("@strategies");
+require("./services/market_simulator");
 
 function App() {
-  const longShortNifyStrategy = new LongShortSyntheticFutures();
+  let userStrategies = null;
+  let removeHsConnectEvent = null;
 
   this.start = async () => {
     await redisService.connect();
 
+    await this.configScrips();
+    this.configWatchers();
+    await hsWebSocketService.connect();
+
+    // TODO: REMOVE
+    // this.loadStrategies();
+    setTimeout(() => this.loadStrategies(), 5000);
+  };
+
+  this.stop = async () => {
+    await redisService.disconnect();
+    hsWebSocketService.disconnect();
+
+    removeHsConnectEvent();
+    removeHsConnectEvent = null;
+
+    userStrategies && userStrategies.stopAll();
+    userStrategies = null;
+
+    niftyFutures.destroy();
+  };
+
+  this.configScrips = async () => {
     await kotakNeoService.loadInstruments(SCRIPS.EXCHANGES.NSE_FO);
     // await kotakNeoService.loadInstruments(SCRIPS.EXCHANGES.NSE_CM);
 
@@ -17,25 +42,23 @@ function App() {
     const niftyFutScrip = await kotakNeoService.loadNiftyFuturesScrip();
     marketDataParser.setScrips({ niftyOptionChainScrips, niftyFutScrip });
 
-    await hsWebSocketService.connect();
-
-    appEvents.on(EVENT.HS_WEB_SOCKET.CONNECTION_OPEN, async () => {
+    removeHsConnectEvent = appEvents.onEvent(EVENT.HS_WEB_SOCKET.CONNECTION_OPEN, async () => {
       await hsWebSocketService.subscribeIndex(SCRIPS.NIFTY_50);
       await hsWebSocketService.subscribeScrips(Object.keys({
         ...niftyOptionChainScrips,
         ...niftyFutScrip,
       }).join("&"));
     });
-
-    niftyFuturesWatchService.start();
-    longShortNifyStrategy.activate();
   };
 
-  this.stop = async () => {
-    await redisService.disconnect();
-    hsWebSocketService.disconnect();
-    niftyFuturesWatchService.stop();
-    longShortNifyStrategy.pause();
+  this.configWatchers = () => {
+    niftyFutures.loadHistory();
+  };
+
+  this.loadStrategies = async () => {
+    const userId = "02869ff3-53cc-4ab5-bd17-ee9939b0fa36";
+    userStrategies = new UserStrategies(userId);
+    userStrategies.deployAll();
   };
 }
 

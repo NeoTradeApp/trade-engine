@@ -14,19 +14,54 @@ module.exports = (sequelize, DataTypes) => {
   }
   Order.init(
     {
+      id: {
+        type: DataTypes.UUID,
+        primaryKey: true,
+        defaultValue: DataTypes.UUIDV4,
+      },
+      positionId: DataTypes.UUID,
+      parentId: DataTypes.UUID,
+
+      userId: DataTypes.STRING,
+      orderId: DataTypes.STRING,
+
+      name: DataTypes.STRING,
+      symbol: DataTypes.STRING,
+
+      type: DataTypes.STRING,
       scrip: DataTypes.STRING,
-      tnxType: DataTypes.ENUM("buy", "sell"),
+      exchange: DataTypes.STRING,
+
+      tnxType: DataTypes.ENUM("BUY", "SELL"),
+      status: DataTypes.STRING,
+
+      quantity: DataTypes.INTEGER,
+      filledQuantity: DataTypes.INTEGER,
+
+      price: DataTypes.DECIMAL,
+      brokerage: DataTypes.DECIMAL,
+      taxes: DataTypes.DECIMAL,
+
       productType: DataTypes.ENUM("MIS", "NRML"),
-      orderType: DataTypes.ENUM("Limit", "Market", "SL-LMT", "SL-MKT"),
-      status: DataTypes.ENUM("pending", "completed", "cancelled"),
-      price: DataTypes.INTEGER,
-      userId: DataTypes.INTEGER,
-      providerUserId: DataTypes.STRING,
-      providerName: DataTypes.STRING,
+      orderType: DataTypes.ENUM("LIMIT", "MARKET", "SL-LMT", "SL-MKT"),
+      status: DataTypes.ENUM(
+        "OPEN",
+        "FILLED",
+        "PARTIAL",
+        "CANCELLED",
+        "REJECTED"
+      ),
+
+      serviceProviderUserId: DataTypes.STRING,
+      serviceProviderName: DataTypes.STRING,
+
+      remarks: DataTypes.STRING,
     },
     {
       sequelize,
       modelName: "Order",
+      underscored: true,
+      timestamps: true,
     }
   );
 

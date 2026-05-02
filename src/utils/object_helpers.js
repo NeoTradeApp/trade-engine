@@ -13,6 +13,8 @@ const getErrorMessage = (errorObj, ...keys) => {
 };
 
 const isEmpty = (entity) => {
+  if (entity === null) return true;
+
   if (Array.isArray(entity)) return !entity.length;
 
   if (typeof entity === "object") return !Object.keys(entity).length;

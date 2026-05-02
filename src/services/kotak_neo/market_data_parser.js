@@ -38,7 +38,7 @@ function MarketDataParser() {
       change: rawData.cng,
       changePercentage: rawData.nc,
       exchange: rawData.e,
-      // type: SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS,
+      // type: SCRIPS.SCRIP_TYPE.NIFTY_OPTION_CHAIN,
     };
   };
 
@@ -81,11 +81,9 @@ function MarketDataParser() {
 
       switch (true) {
         case Object.keys(this.niftyOptionChainScrips).includes(key):
-          // parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS] ||= [];
-          // parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS].push(parseNiftyOptionChain(rawData));
-          parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS] = parseNiftyOptionChain(
+          parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTION_CHAIN] = parseNiftyOptionChain(
             rawData,
-            parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS],
+            parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTION_CHAIN],
           );
           break;
 

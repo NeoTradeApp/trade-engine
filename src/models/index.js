@@ -30,6 +30,9 @@ function Model(sequelize, Sequelize) {
         models[modelName].associate(models);
       }
     });
+
+    models.sequelize = sequelize;
+    models.Sequelize = Sequelize;
   };
 }
 

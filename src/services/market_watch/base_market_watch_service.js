@@ -2,7 +2,7 @@ const moment = require("moment");
 const { redisService } = require("../redis");
 const { appEvents } = require("@events");
 const { EVENT, REDIS } = require("@constants");
-const { parseTimeToSeconds } = require("@utils");
+const { debounce, isEmpty } = require("@utils");
 
 function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize) {
   this.candlesData = [];
@@ -15,9 +15,16 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize) {
   let currentBucket = null;
 
   let candlesBufferToPublish = [];
-  let candleUpdateTimer = null;
 
-  this.storeCandlesToDatabase = false;
+  this.publishCandlesToRedis = false;
+
+  this.onHistoryLoad = () => { };
+  this.loadHistory = async () => {
+    this.candlesData = await redisService.get(REDIS.KEY.MARKET_WATCH.SCRIP(this.scrip)) || [];
+    this.onHistoryLoad();
+  };
+
+  this.get = (param) => this.currentCandle?.[param];
 
   const bufferCandlesAndPublish = async (candle) => {
     candle && candlesBufferToPublish.push(candle);
@@ -35,10 +42,12 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize) {
     this.candlesData.push(candle);
 
     if (this.candlesData.length > this.bufferSize) {
-      this.candlesData.shift();
+      // this.candlesData.shift();
+      this.candlesData.splice(0, 1);
     }
 
-    this.storeCandlesToDatabase && bufferCandlesAndPublish(candle);
+    redisService.set(REDIS.KEY.MARKET_WATCH.SCRIP(this.scrip), this.candlesData, "12h");
+    this.publishCandlesToRedis && bufferCandlesAndPublish(candle);
 
     return this.candlesData;
   };
@@ -51,8 +60,11 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize) {
   };
 
   const updateCurrentCandle = (marketData) => {
-    const { currentPrice, volume, expiry, openInterest } = marketData || {};
-    if (!currentPrice) return;
+    const { currentPrice: priceInStr, volume, expiry, openInterest } = marketData || {};
+    if (!priceInStr) return;
+
+    const currentPrice = parseFloat(priceInStr);
+    if (Number.isNaN(currentPrice)) return;
 
     const bucket = getTimeBucket(this.intervalInMinutes);
 
@@ -88,32 +100,40 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize) {
     this.emitCurrentCandle(this.currentCandle);
   };
 
+  this.previousCandles = (candlesCount = 1) =>
+    this.candlesData.slice(this.candlesData.length - candlesCount);
+
   this.emitCurrentCandle = (currentCandleData) =>
     appEvents.emit(EVENT.MARKET_WATCH.SCRIP(this.scrip), currentCandleData);
 
   this.fetchMarketData = (marketData) => marketData[this.scrip];
 
+  this.calculateIndicators = () => ({});
+  this.currentCandleClosed = () => { };
+
   this.start = () => {
     if (removeMarketFeedEvent) return;
 
+    const updateLastCandle = debounce((currentCandleData) => updateCurrentCandle({ ...currentCandleData, volume: 0 }), "1m");
+
     removeMarketFeedEvent = appEvents.onEvent(EVENT.HS_WEB_SOCKET.MARKET_FEED, (marketData) => {
-      updateCurrentCandle(this.fetchMarketData(marketData));
+      const scripData = this.fetchMarketData(marketData);
+      if (isEmpty(scripData)) return;
+
+      updateCurrentCandle(scripData);
 
       // debounce to update the last candle data (complete of incomplete) if market data is paused
-      candleUpdateTimer && clearTimeout(candleUpdateTimer);
-      candleUpdateTimer = setTimeout(() => {
-        updateCurrentCandle({ ...this.currentCandle, volume: 0 });
-      }, parseTimeToSeconds("1m") * 1000); // 1 minute
+      updateLastCandle(this.currentCandle);
     });
   };
 
-  this.calculateIndicators = () => ({});
+  this.destroy = () => {
+    redisService.delete(REDIS.KEY.MARKET_WATCH.SCRIP(this.scrip));
 
-  this.stop = () => {
-    if (!removeMarketFeedEvent) return;
-
-    removeMarketFeedEvent();
-    removeMarketFeedEvent = null;
+    if (removeMarketFeedEvent) {
+      removeMarketFeedEvent();
+      removeMarketFeedEvent = null;
+    }
   };
 }
 

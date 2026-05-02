@@ -24,6 +24,9 @@ const isMarketOpen = () => {
   return !isWeekend && now.isBetween(marketOpeningTime, marketClosingTIme);
 };
 
+const isTimeNowBefore = (time) => todayTimeIst().isBefore(todayTimeIst(time));
+const isCurrenTimeAfter = (time) => todayTimeIst().isAfter(todayTimeIst(time));
+
 const parseTimeToSeconds = (timeInStr) => {
   const multiplier = {
     "s": 1,
@@ -52,7 +55,7 @@ const weekDayIndexOf = (day) => {
 const getDateOfNext = (targetDay) => {
   const weekDayIndex = weekDayIndexOf(targetDay);
 
-  const today = moment();
+  const today = todayTimeIst();
 
   if (today.isoWeekday() > weekDayIndex) {
     today.add(1, "week");
@@ -62,21 +65,51 @@ const getDateOfNext = (targetDay) => {
 };
 
 const getMonthEndDateOf = (targetDay) => {
-  const weekDayIndex = weekDayIndexOf(targetDay);
-  const endOfMonth = moment().endOf('month');
+  const getLastDayOfMonth = (referenceDay, day) => {
+    const weekDayIndex = weekDayIndexOf(day);
+    const endOfMonth = referenceDay.endOf('month');
 
-  while (endOfMonth.day() !== weekDayIndex) {
-    endOfMonth.subtract(1, 'day');
+    while (endOfMonth.day() !== weekDayIndex) {
+      endOfMonth.subtract(1, 'day');
+    }
+
+    return endOfMonth;
+  };
+
+  const today = todayTimeIst();
+  let lastDayOfMonth = getLastDayOfMonth(today, targetDay);
+
+  if (todayTimeIst().isAfter(lastDayOfMonth, "day")) {
+    const nextMonth = todayTimeIst().add(1, "month");
+    lastDayOfMonth = getLastDayOfMonth(nextMonth, targetDay);
   }
 
-  return endOfMonth.format("YYYY-MM-DD");
-}
+  return lastDayOfMonth.format("YYYY-MM-DD");
+};
+
+const setCallbackAtTime = (callback, time) => {
+  const now = todayTimeIst();
+
+  let target = todayTimeIst(time);
+
+  // If target time already passed today
+  if (target.isSameOrBefore(now)) {
+    return;
+  }
+
+  const delay = target.diff(now);
+  return setTimeout(() => callback(), delay);
+};
 
 module.exports = {
+  todayTimeIst,
+  isTimeNowBefore,
+  isCurrenTimeAfter,
   parseTimeToSeconds,
   marketOpeningTime,
   marketClosingTIme,
   isMarketOpen,
   getDateOfNext,
   getMonthEndDateOf,
+  setCallbackAtTime,
 };

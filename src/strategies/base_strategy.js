@@ -1,81 +1,137 @@
+const { logger } = require("winston");
+const { sequelize, Position, Order } = require("@models");
+const { redisService } = require("@services");
 const { appEvents } = require("@events")
-const { EVENT, STRATEGY } = require("@constants")
-const { generateRandomId } = require("@utils");
+const { REDIS, EVENT, STRATEGY } = require("@constants")
+const { generateRandomId, isMarketOpen, isEmpty, selectKeys, todayTimeIst } = require("@utils");
 
-const { INITIATED, ACTIVE, ENTERED, PAUSED, EXITED } = STRATEGY.STATUS;
+const { INITIATED, STARTED, ENTERED, PAUSED, STOPPED, EXITED } = STRATEGY.STATUS;
+const MARKET_TICK_INTERVAL_MS = 1000;
 
-function BaseStrategy(orders = []) {
-  this.strategyId = generateRandomId(5);
-  this.status = INITIATED;
-  let prevStatus = this.status;
+function BaseStrategy(strategyId, userId) {
+  this.strategyId = strategyId || generateRandomId(5);
+  this.userId = userId;
+
+  (async () => {
+    const userDetails = await redisService.get(REDIS.KEY.USER_INFO(this.userId));
+    this.serverId = userDetails?.serverId;
+  })();
 
   this.pnl = 0;
-  this.entryOrders = [...orders];
-  this.exitOrders = [];
+  this.position = {};
+  this.positionInDb = [];
 
-  this.processMarketTick = (data) => {
-    // const {
-    //   [SCRIPS.SCRIP_TYPE.NIFTY_FUTURE]: niftyFutures,
-    //   [SCRIPS.SCRIP_TYPE.NIFTY_OPTIONS]: niftyOptions,
-    // } = data;
+  let marketFeedTimer = null;
 
-    if (this.isEntered() && this.exitRules(data)) {
-      this.exit();
-    }
+  this.processMarketTick = () => {
+    try {
 
-    if (this.isActive() && !this.isEntered() && this.entryRules(data)) {
-      this.enter();
+      // TODO: REMOVE
+      // if (!isMarketOpen()) {
+      //   stopMarketFeed();
+      //   return;
+      // }
+
+      if (this.isEntered()) {
+        this.updatePnL();
+        this.checkExit();
+      } else {
+        this.checkEntry();
+      }
+      this.publishPnlToRedis();
+    } catch (error) {
+      logger.error("Strategy Error:", this.constructor.name, error);
     }
   };
 
-  this.executeEntryOrders = (orders) => {
-    this.entryOrders = [...orders];
-  };
-
-  let removeMarketFeedEvent = null;
   const listenMarketFeed = () => {
-    removeMarketFeedEvent = appEvents.onEvent(EVENT.HS_WEB_SOCKET.MARKET_FEED, this.processMarketTick);
+    marketFeedTimer = setInterval(this.processMarketTick, MARKET_TICK_INTERVAL_MS);
   };
 
   const stopMarketFeed = () => {
-    if (!removeMarketFeedEvent) return;
+    if (!marketFeedTimer) return;
 
-    removeMarketFeedEvent();
-    removeMarketFeedEvent = null;
+    clearInterval(marketFeedTimer);
+    marketFeedTimer = null;
   };
 
-  this.isActive = () => this.status === ACTIVE;
-  this.activate = () => {
+  this.isActive = () => !!marketFeedTimer;
+  this.start = () => {
     listenMarketFeed();
-    this.status = ACTIVE;
   };
 
-  this.isEntered = () => this.status === ENTERED;
-  this.enter = () => {
-    this.status = ENTERED;
-  };
-
-  this.pause = () => {
-    if (![ACTIVE, ENTERED].includes(this.status)) return;
-
+  this.stop = () => {
     stopMarketFeed();
-    prevStatus = this.status;
-    this.status = PAUSED;
   };
 
-  this.resume = () => {
-    if (this.status !== PAUSED) return;
+  this.isEntered = () => !isEmpty(this.position);
+  this.checkEntry = () => { };
+  this.checkExit = () => { };
+  this.updatePnL = () => { };
 
-    listenMarketFeed();
-    this.status = prevStatus;
+  this.enterPosition = async (position) => {
+    const transaction = await sequelize.transaction();
+    try {
+      const positionInDb = await createPosition(position);
+      this.position = { ...positionInDb, ...position };
+      redisService.set(REDIS.KEY.POSITIONS(this.strategyId, this.userId), this.position, "8h");
+
+      const { orders } = position || {};
+      const ordersInDb = await createOrders(positionInDb?.id, orders, transaction);
+      transaction.commit();
+
+      return positionInDb;
+    } catch (error) {
+      transaction.rollback();
+      logger.error("Strategy Error:", this.constructor.name, "enterPosition", error);
+      // throw error;
+    }
   };
 
-  this.isExited = () => this.status === EXITED;
-  this.exit = () => {
-    if (![ACTIVE, ENTERED, PAUSED].includes(this.status)) return;
+  this.publishPnlToRedis = () => {
+    if (this.serverId) {
+      redisService.publish(REDIS.CHANNEL.POSITION_UPDATE(this.serverId), {
+        userId: this.userId,
+        position: this.position,
+      });
+    }
+  };
 
-    stopMarketFeed();
-    this.status = EXITED;
+  this.exitPosition = (position) => {
+    // exitTime: todayTimeIst().format("yyyy-mm-dd HH:mm:ss"),
+  };
+
+  const createPosition = async (position, transaction) => {
+    const now = todayTimeIst().format("yyyy-mm-dd HH:mm:ss");
+    const positionInDb = await Position.create(
+      {
+        strategyId: this.strategyId,
+        status: "ACTIVE",
+        entryTime: now,
+        ...selectKeys(
+          position,
+          "name",
+          "description",
+          "entryPrice",
+        ),
+      },
+      { transaction }
+    );
+
+    return positionInDb.toJSON();
+  };
+
+  const createOrders = async (positionId, orders, transaction) => {
+    const orderPayloads = (orders || []).map((order) => ({
+      ...order,
+      positionId,
+      parentOrderId: null, // entry orders
+      status: "FILLED",
+      // createdAt: now,
+      // updatedAt: now,
+    }));
+
+    return await Order.bulkCreate(orderPayloads, { transaction });
   };
 }
 

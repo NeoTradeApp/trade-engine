@@ -1,32 +1,36 @@
-const { SCRIPS } = require("@constants")
+const { isMarketOpen, getMonthEndDateOf } = require("@utils");
+const { SCRIPS } = require("@constants");
 const { ExponentialMovingAverage } = require("./indicators");
 const BaseMarketWatchService = require("./base_market_watch_service");
 
-function NiftyFuturesWatchService(scrip, intervalInMinutes, bufferSize) {
-  BaseMarketWatchService.call(this, scrip, intervalInMinutes, bufferSize);
+const { NIFTY_MONTHLY_EXPIRY } = process.env;
 
-  this.storeCandlesToDatabase = true;
+function NiftyFuturesWatchService(expiry, intervalInMinutes, bufferSize) {
+  BaseMarketWatchService.call(this, SCRIPS.SCRIP_TYPE.NIFTY_FUTURE, intervalInMinutes, bufferSize);
+
+  this.publishCandlesToRedis = isMarketOpen();
 
   const emaIndicator = new ExponentialMovingAverage(this.bufferSize, this.bufferSize);
+  this.onHistoryLoad = () => {
+    emaIndicator.loadHistory(this.candlesData.map((_) => _?.indicators?.ema || _?.close));
+  };
 
   this.currentCandleClosed = (currendCandle) => {
-    this.currentCandle.indicators.ema = emaIndicator.push(currendCandle.currentPrice);
+    this.currentCandle.indicators.ema = emaIndicator.push(currendCandle.close);
+    this.currentCandle.indicators.trend = emaIndicator.getTrend();
   };
 
   this.fetchMarketData = (marketData) => marketData[this.scrip];
 
   this.calculateIndicators = (currentCandle) => ({
-    ema: emaIndicator.calculate(currentCandle.currentPrice),
+    ema: emaIndicator.calculate(currentCandle.close),
+    trend: emaIndicator.getTrend(),
   });
+
+  this.start();
 }
 
-const NIFTY_FUTURE_BUFFER_SIZE = 10;
-const NIFTY_FUTURE_TIME_INTERVAL_IN_MINUTES = 1;
+const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday");
+const niftyFuturesWatchService = new NiftyFuturesWatchService(niftyMonthlyExpiry, 1, 50);
 
-module.exports = {
-  niftyFuturesWatchService: new NiftyFuturesWatchService(
-    SCRIPS.SCRIP_TYPE.NIFTY_FUTURE,
-    NIFTY_FUTURE_TIME_INTERVAL_IN_MINUTES,
-    NIFTY_FUTURE_BUFFER_SIZE
-  ),
-};
+module.exports = { niftyFuturesWatchService };

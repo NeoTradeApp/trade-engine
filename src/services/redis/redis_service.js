@@ -3,7 +3,7 @@ const { logger } = require("winston");
 const { appEvents } = require("@events");
 const { redisChannelListeners } = require("./channel_listeners");
 const { REDIS, EVENT } = require("@constants");
-const { parseTimeToSeconds } = require("@utils")
+const { parseTimeToSeconds, isEmpty } = require("@utils")
 
 const { REDIS_URL } = process.env;
 
@@ -59,10 +59,12 @@ function RedisService() {
     }
 
     let data = await this.get(cacheKey);
-    if (data) return data;
+    if (!isEmpty(data)) return data;
 
     data = await callback();
-    await this.set(cacheKey, data, expiryTimeInString);
+    if (!isEmpty(data)) {
+      await this.set(cacheKey, data, expiryTimeInString);
+    }
 
     return data;
   };

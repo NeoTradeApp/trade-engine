@@ -6,27 +6,26 @@ const { REDIS, EVENT, SCRIPS } = require("@constants");
 const { redisService } = require("../redis");
 const { getErrorMessage, downloadAndParseCsv, getDateOfNext, getMonthEndDateOf } = require("@utils");
 
-const { KOTAK_NEO_API_BASE_URL, KOTAK_NEO_ACCESS_TOKEN } = process.env;
+const { KOTAK_NEO_MARKET_DATA_BASE_URL, KOTAK_NEO_ACCESS_TOKEN, NIFTY_LAST_TRADED_VALUE } = process.env;
 const KOTAK_NEO_EXPIRY_ADDITION = 315511200;
 
-const OPTION_CHAIN_DEPTH = 5;
+const OPTION_CHAIN_DEPTH = 7;
 const NIFTY_STRIKE_PRICE_INTERVAL = 50;
 const { NIFTY_WEEKLY_EXPIRY, NIFTY_MONTHLY_EXPIRY } = process.env;
 
 function KotakNeoService() {
   BaseService.call(this);
 
-  this.baseUrl = KOTAK_NEO_API_BASE_URL;
+  this.baseUrl = KOTAK_NEO_MARKET_DATA_BASE_URL;
 
   this.errorHandler = (error, details = {}) => {
-    const { status, data: errorObj } = error.response || {};
-    const errorMessage = getErrorMessage(errorObj);
+    const { status } = error.response || {};
+    const errorMessage = getErrorMessage(error);
 
     logger.error("KotakNeoService: ", status, details, errorMessage);
   };
 
   const baseCallApi = this.callApi;
-
   this.callApi = async (...args) => {
     this.defaultHeaders = {
       Authorization: KOTAK_NEO_ACCESS_TOKEN,
@@ -41,7 +40,7 @@ function KotakNeoService() {
       "GET",
       "/script-details/1.0/masterscrip/file-paths",
       "",
-      { baseUrl: "https://e21.kotaksecurities.com" }
+      // { baseUrl: "https://e21.kotaksecurities.com" }
     );
 
     const { filesPaths } = response?.data || {};
@@ -63,11 +62,27 @@ function KotakNeoService() {
     }));
   };
 
+  this.findQuote = async (regexPattern, expiry) => {
+    const instruments = await findInstruments(regexPattern, expiry) || {};
+
+    return await this.getQuotes(Object.keys(instruments));
+  };
+
+  this.getQuotes = async (scrips = []) => {
+    if (!scrips.length) return [];
+
+    return await this.callApi(
+      "GET",
+      `/script-details/1.0/quotes/neosymbol/${scrips.join(",")}`,
+      ""
+    );
+  };
+
   this.loadInstruments = (exchange) =>
     redisService.cache(
       REDIS.KEY.KOTAK_NEO.MASTER_SCRIP(exchange),
       () => downloadAndParseMasterScrip(exchange),
-      "24h"
+      "12h"
     );
 
   const findInstruments = async (regexPattern, expiry) => {
@@ -91,12 +106,16 @@ function KotakNeoService() {
   };
 
   this.loadNiftyOptionChainScrips = async () => {
-    const lastTradedNifyValue = 22400;
+    const niftyFutureScrip = await this.loadNiftyFuturesScrip();
+    // TODO: REMOVE
+    const [niftyFuturesQuote] = [];//await this.getQuotes(Object.keys(niftyFutureScrip));
+    const lastTradedNifyValue = parseFloat(niftyFuturesQuote?.ltp) || NIFTY_LAST_TRADED_VALUE;
+
     const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
 
     const niftyATMStrikePrice = parseInt(lastTradedNifyValue / 50) * 50;
     const strikePrices = Array.from(
-      { length: 11 },
+      { length: OPTION_CHAIN_DEPTH * 2 },
       (_, i) => niftyATMStrikePrice + (i - OPTION_CHAIN_DEPTH) * NIFTY_STRIKE_PRICE_INTERVAL
     );
 
@@ -109,10 +128,10 @@ function KotakNeoService() {
   };
 
   this.loadNiftyFuturesScrip = async () => {
-    const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday")
+    const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday");
 
     return await findInstruments(
-      `^(NIFTY)(${moment().format("YYMMM").toUpperCase()})(FUT)$`,
+      `^(NIFTY)(${moment(niftyMonthlyExpiry).format("YYMMM").toUpperCase()})(FUT)$`,
       niftyMonthlyExpiry
     );
   };
