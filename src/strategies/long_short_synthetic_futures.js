@@ -1,8 +1,10 @@
 const { appEvents } = require("@events")
 const { REDIS, SERVICE_PROVIDERS, STRATEGY } = require("@constants")
 const { redisService, niftyFuturesWatchService: niftyFutures, NiftyOptionsWatchService } = require("@services");
-const { isCurrenTimeAfter } = require("@utils");
+const { isCurrenTimeAfter, getDateOfNext } = require("@utils");
 const BaseStrategy = require("./base_strategy");
+
+const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
 function LongShortSyntheticFutures(strategyId, userId) {
   BaseStrategy.call(this, strategyId, userId);
@@ -13,63 +15,94 @@ function LongShortSyntheticFutures(strategyId, userId) {
   const SHORT_POSITION = "SHORT";
   const LOT_SIZE = 65;
   const noOfLots = 1;
+  const TARGET = 120;
+  const STOPLOSS = -30;
+  const TRAILING_STOPLOSS = 30;
+  const TRAIL_STOPLOSS_AT = 30;
+
+  const ENTRY_TIME = { hour: 9, minute: 45 };
+  const EXIT_TIME = { hour: 15, minute: 25 };
+
+  const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 
   const EMA_DISTANCE_THRESHOLD = 300;
   let niftyOptionCE = niftyOptionPE = null;
 
-  (async () => {
-    const position = await redisService.get(REDIS.KEY.POSITIONS(this.strategyId, this.userId));
+  redisService.get(REDIS.KEY.POSITIONS(this.strategyId, this.userId)).then((position) => {
     if (position) {
       this.position = position;
       selectATMOptions(this.position.strikePrice);
+
+      this.position.orders.forEach((order) => {
+        const niftyOption = [niftyOptionCE, niftyOptionPE].find((niftyOption) =>
+          niftyOption && order.scrip === niftyOption.scrip
+        );
+        if (niftyOption) {
+          order.currentData = niftyOption;
+        }
+      })
     }
-  })();
+  });
 
   const selectATMOptions = (strikePrice) => {
     if (!strikePrice) return;
 
+    const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
     if (!niftyOptionCE) {
-      niftyOptionCE = new NiftyOptionsWatchService(strikePrice, "CE");
+      niftyOptionCE = new NiftyOptionsWatchService(strikePrice, "CE", niftyWeeklyExpiry);
     }
 
     if (!niftyOptionPE) {
-      niftyOptionPE = new NiftyOptionsWatchService(strikePrice, "PE");
+      niftyOptionPE = new NiftyOptionsWatchService(strikePrice, "PE", niftyWeeklyExpiry);
     }
   };
 
   this.checkEntry = () => {
-    // TODO: REMOVE
-    // if (!isCurrenTimeAfter({ hour: 9, minute: 45 })) return;
+    if (isCurrenTimeBefore(ENTRY_TIME) || isCurrenTimeAfter(EXIT_TIME)) return;
 
     const price = niftyFutures.get("close");
     if (!price) return;
 
     const atmStrikePrice = Math.round(price / 100) * 100;
     selectATMOptions(atmStrikePrice);
-    const cePrice = niftyOptionCE.get("close");
-    const pePrice = niftyOptionPE.get("close");
 
-    if (!cePrice || !pePrice) return;
+    if (!niftyOptionCE.get("close") || !niftyOptionPE.get("close")) return;
 
     const { ema, trend } = niftyFutures.get("indicators") || {};
     const distance = Math.abs(price - ema);
 
     if (distance > EMA_DISTANCE_THRESHOLD) return;
 
-    // Long Synthetic
-    if (trend === STRATEGY.TREND.UPTREND) {
-      enterLong(price, cePrice, pePrice);
-    }
-
-    // Short Synthetic
-    if (trend === STRATEGY.TREND.DOWNTREND) {
-      enterShort(price, cePrice, pePrice);
+    // Reverse the position direction based on previous trade else follow the trend.
+    if (this.previousTradeDirection === LONG_POSITION) {
+      enterShort();
+    } else if (this.previousTradeDirection === SHORT_POSITION) {
+      enterLong();
+    } else if (trend === STRATEGY.TREND.UPTREND) {
+      enterLong();
+    } else if (trend === STRATEGY.TREND.DOWNTREND) {
+      enterShort();
     }
   };
 
   this.checkExit = () => {
-    if (isCurrenTimeAfter({ hour: 15, minute: 25 })) {
-      // square off
+    const { pnl, target, stoploss, trailStoplossAt, trailingStoploss } = this.position;
+
+    if (pnl <= stoploss || pnl >= target || isCurrenTimeAfter(EXIT_TIME)) {
+      this.previousTradeDirection = this.position.direction;
+      this.exitPosition({
+        ...this.position,
+        exitPrice: niftyFutures.get("close"),
+      });
+      return;
+    }
+
+    if (pnl >= trailStoplossAt) {
+      Object.assign(this.position, {
+        stoploss: trailStoplossAt - trailingStoploss,
+        trailStoplossAt: trailStoplossAt + pointsToAmount(TRAIL_STOPLOSS_AT),
+      });
+      this.savePositionToRedis();
     }
   };
 
@@ -79,7 +112,7 @@ function LongShortSyntheticFutures(strategyId, userId) {
 
     let pnl = 0;
 
-    if (this.position.type === "LONG") {
+    if (this.position.direction === LONG_POSITION) {
       pnl =
         (cePrice - this.position.ceEntry) -
         (pePrice - this.position.peEntry);
@@ -89,15 +122,15 @@ function LongShortSyntheticFutures(strategyId, userId) {
         (pePrice - this.position.peEntry);
     }
 
-    this.position.pnl = pnl;
+    this.position.pnl = pointsToAmount(pnl);
   };
 
-  const enterLong = (price, cePrice, pePrice) => {
+  const enterLong = () => {
     // BUY CE + SELL PE
     this.enterPosition({
       ...preparePosition(),
       direction: LONG_POSITION,
-      name: `Nifty Synth FUT (${LONG_POSITION})`,
+      name: `NIFTY SYNTH FUT (${LONG_POSITION})`,
       description: `Buy ${niftyOptionCE.scrip} | Sell ${niftyOptionPE.scrip}`,
       orders: [
         prepareOrder(niftyOptionCE, "BUY", noOfLots * LOT_SIZE),
@@ -106,12 +139,12 @@ function LongShortSyntheticFutures(strategyId, userId) {
     });
   };
 
-  const enterShort = (price, cePrice, pePrice) => {
+  const enterShort = () => {
     // SELL CE + BUY PE
     this.enterPosition({
       ...preparePosition(),
       direction: SHORT_POSITION,
-      name: `Nifty Synth FUT (${SHORT_POSITION})`,
+      name: `NIFTY SYNTH FUT (${SHORT_POSITION})`,
       description: `BUY ${niftyOptionPE.scrip} | SELL ${niftyOptionCE.scrip}`,
       orders: [
         prepareOrder(niftyOptionPE, "BUY", noOfLots * LOT_SIZE),
@@ -121,7 +154,6 @@ function LongShortSyntheticFutures(strategyId, userId) {
   };
 
   const preparePosition = () => {
-    const price = niftyFutures.get("close");
     const cePrice = niftyOptionCE.get("close");
     const pePrice = niftyOptionPE.get("close");
 
@@ -129,21 +161,21 @@ function LongShortSyntheticFutures(strategyId, userId) {
       ceEntry: cePrice,
       peEntry: pePrice,
       strikePrice: niftyOptionCE?.strikePrice || niftyOptionPE?.strikePrice,
-      entryPrice: price,
+      entryPrice: niftyFutures.get("close"),
 
-      target: 120,
-      stoploss: -30,
-      trailing_stoploss: 60,
-      trail_stoploss_at: 30,
+      target: pointsToAmount(TARGET),
+      stoploss: pointsToAmount(STOPLOSS),
+      trailingStoploss: pointsToAmount(TRAILING_STOPLOSS),
+      trailStoplossAt: pointsToAmount(TRAIL_STOPLOSS_AT),
     };
   };
 
   const prepareOrder = (niftyOption, direction, quantity) => ({
-    candleData: niftyOption,
+    currentData: niftyOption,
     userId: this.userId,
-    orderId: "paper test",
+    orderId: "paper trade",
 
-    name: `${niftyOption.strikePrice} ${niftyOption.optionType}`,
+    name: `${niftyOption.strikePrice} ${niftyOption.optionType} ${niftyOption.optionExpiry}`,
     symbol: niftyOption.scrip,
 
     type: niftyOption.optionType,
@@ -155,11 +187,6 @@ function LongShortSyntheticFutures(strategyId, userId) {
 
     quantity,
     filledQuantity: quantity,
-
-    exchange: "nse",
-    status: "FILLED",
-    productType: "NRML",
-    orderType: "MARKET",
 
     serviceProviderUserId: this.userId,
     serviceProviderName: "paper trade",

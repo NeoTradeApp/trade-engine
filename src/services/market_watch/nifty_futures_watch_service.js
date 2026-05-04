@@ -8,6 +8,7 @@ const { NIFTY_MONTHLY_EXPIRY } = process.env;
 function NiftyFuturesWatchService(expiry, intervalInMinutes, bufferSize) {
   BaseMarketWatchService.call(this, SCRIPS.SCRIP_TYPE.NIFTY_FUTURE, intervalInMinutes, bufferSize);
 
+  this.expiry = expiry;
   this.publishCandlesToRedis = isMarketOpen();
 
   const emaIndicator = new ExponentialMovingAverage(this.bufferSize, this.bufferSize);

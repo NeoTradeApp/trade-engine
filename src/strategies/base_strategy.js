@@ -17,20 +17,16 @@ function BaseStrategy(strategyId, userId) {
     this.serverId = userDetails?.serverId;
   })();
 
-  this.pnl = 0;
   this.position = {};
-  this.positionInDb = [];
 
   let marketFeedTimer = null;
 
   this.processMarketTick = () => {
     try {
-
-      // TODO: REMOVE
-      // if (!isMarketOpen()) {
-      //   stopMarketFeed();
-      //   return;
-      // }
+      if (!isMarketOpen()) {
+        stopMarketFeed();
+        return;
+      }
 
       if (this.isEntered()) {
         this.updatePnL();
@@ -38,7 +34,7 @@ function BaseStrategy(strategyId, userId) {
       } else {
         this.checkEntry();
       }
-      this.publishPnlToRedis();
+      this.publishPositionToRedis();
     } catch (error) {
       logger.error("Strategy Error:", this.constructor.name, error);
     }
@@ -72,13 +68,17 @@ function BaseStrategy(strategyId, userId) {
   this.enterPosition = async (position) => {
     const transaction = await sequelize.transaction();
     try {
-      const positionInDb = await createPosition(position);
+      const positionInDb = await createPosition(position, transaction);
       this.position = { ...positionInDb, ...position };
-      redisService.set(REDIS.KEY.POSITIONS(this.strategyId, this.userId), this.position, "8h");
+      this.savePositionToRedis();
 
       const { orders } = position || {};
       const ordersInDb = await createOrders(positionInDb?.id, orders, transaction);
       transaction.commit();
+
+      this.position.orders.forEach((order, index) => {
+        order.id = ordersInDb[index]?.id
+      });
 
       return positionInDb;
     } catch (error) {
@@ -88,7 +88,63 @@ function BaseStrategy(strategyId, userId) {
     }
   };
 
-  this.publishPnlToRedis = () => {
+  this.exitPosition = async (position) => {
+    if (!position || position.status !== "ACTIVE") {
+      return null;
+    }
+
+    let pnl = 0;
+    const exitOrders = [];
+    for (const orderDetails of position.orders) {
+      const { currentData, ...entryOrder } = orderDetails;
+
+      const reverseSide = entryOrder.tnxType === "BUY" ? "SELL" : "BUY";
+      const ltp = currentData?.currentCandle?.close || entryOrder.price;
+
+      const exitOrder = {
+        ...entryOrder,
+        id: undefined,
+        parentOrderId: entryOrder.id, // link to entry
+        tnxType: reverseSide,
+        price: ltp,
+        orderId: `exit paper trade`,
+      };
+
+      exitOrders.push(exitOrder);
+
+      if (entryOrder.tnxType === "BUY") {
+        pnl += (exitOrder.price - entryOrder.price) * entryOrder.quantity;
+      } else {
+        pnl += (entryOrder.price - exitOrder.price) * entryOrder.quantity;
+      }
+    }
+
+    const closedPosition = {
+      status: "CLOSED",
+      pnl,
+      exitTime: todayTimeIst(),
+      exitPrice: position.exitPrice,
+    };
+
+    const transaction = await sequelize.transaction();
+    try {
+      await updatePosition(position.id, closedPosition, transaction);
+      const exitOrdersInDb = await createOrders(position?.id, exitOrders, transaction);
+      transaction.commit();
+
+      await redisService.delete(REDIS.KEY.POSITIONS(this.strategyId, this.userId));
+      this.position = {};
+    } catch (error) {
+      transaction.rollback();
+      logger.error("Strategy Error:", this.constructor.name, "exitPosition", error);
+      // throw error;
+    }
+  };
+
+  this.savePositionToRedis = () =>
+    redisService.set(REDIS.KEY.POSITIONS(this.strategyId, this.userId), this.position, "8h");
+
+  this.publishPositionToRedis = () => {
     if (this.serverId) {
       redisService.publish(REDIS.CHANNEL.POSITION_UPDATE(this.serverId), {
         userId: this.userId,
@@ -97,22 +153,21 @@ function BaseStrategy(strategyId, userId) {
     }
   };
 
-  this.exitPosition = (position) => {
-    // exitTime: todayTimeIst().format("yyyy-mm-dd HH:mm:ss"),
-  };
-
   const createPosition = async (position, transaction) => {
-    const now = todayTimeIst().format("yyyy-mm-dd HH:mm:ss");
     const positionInDb = await Position.create(
       {
         strategyId: this.strategyId,
         status: "ACTIVE",
-        entryTime: now,
+        entryTime: todayTimeIst(),
         ...selectKeys(
           position,
           "name",
           "description",
           "entryPrice",
+          "target",
+          "stoploss",
+          "trailingStoploss",
+          "trailStoplossAt",
         ),
       },
       { transaction }
@@ -121,17 +176,28 @@ function BaseStrategy(strategyId, userId) {
     return positionInDb.toJSON();
   };
 
+  const updatePosition = async (positionId, update, transaction) => {
+    return await Position.update(
+      update,
+      {
+        where: { id: positionId },
+        transaction,
+      }
+    );
+  };
+
   const createOrders = async (positionId, orders, transaction) => {
     const orderPayloads = (orders || []).map((order) => ({
-      ...order,
       positionId,
       parentOrderId: null, // entry orders
+      exchange: "nse",
       status: "FILLED",
-      // createdAt: now,
-      // updatedAt: now,
+      productType: "NRML",
+      orderType: "MARKET",
+      ...order,
     }));
 
-    return await Order.bulkCreate(orderPayloads, { transaction });
+    return await Order.bulkCreate(orderPayloads, { transaction, returning: true });
   };
 }
 

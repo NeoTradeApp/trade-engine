@@ -3,7 +3,9 @@ const { kotakNeoService, hsWebSocketService, marketDataParser } = KotakNeo;
 const { appEvents } = require("@events");
 const { EVENT, SCRIPS } = require("@constants");
 const { UserStrategies } = require("@strategies");
-require("./services/market_simulator");
+
+// TODO: REMOVE
+// require("./services/market_simulator");
 
 function App() {
   let userStrategies = null;
