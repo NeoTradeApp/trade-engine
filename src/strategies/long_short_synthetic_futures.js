@@ -1,7 +1,7 @@
 const { appEvents } = require("@events")
 const { REDIS, SERVICE_PROVIDERS, STRATEGY } = require("@constants")
 const { redisService, niftyFuturesWatchService: niftyFutures, NiftyOptionsWatchService } = require("@services");
-const { isCurrenTimeAfter, getDateOfNext } = require("@utils");
+const { isCurrenTimeBefore, isCurrenTimeAfter, getDateOfNext } = require("@utils");
 const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
@@ -15,7 +15,7 @@ function LongShortSyntheticFutures(strategyId, userId) {
   const SHORT_POSITION = "SHORT";
   const LOT_SIZE = 65;
   const noOfLots = 1;
-  const TARGET = 120;
+  const TARGET = 200;
   const STOPLOSS = -30;
   const TRAILING_STOPLOSS = 30;
   const TRAIL_STOPLOSS_AT = 30;
@@ -94,6 +94,12 @@ function LongShortSyntheticFutures(strategyId, userId) {
         ...this.position,
         exitPrice: niftyFutures.get("close"),
       });
+
+      niftyOptionCE.destroy();
+      niftyOptionPE.destroy();
+      niftyOptionCE = null;
+      niftyOptionPE = null;
+
       return;
     }
 

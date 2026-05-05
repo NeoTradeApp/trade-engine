@@ -104,7 +104,7 @@ function BaseStrategy(strategyId, userId) {
       const exitOrder = {
         ...entryOrder,
         id: undefined,
-        parentOrderId: entryOrder.id, // link to entry
+        parentId: entryOrder.id, // link to entry
         tnxType: reverseSide,
         price: ltp,
         orderId: `exit paper trade`,
@@ -189,7 +189,7 @@ function BaseStrategy(strategyId, userId) {
   const createOrders = async (positionId, orders, transaction) => {
     const orderPayloads = (orders || []).map((order) => ({
       positionId,
-      parentOrderId: null, // entry orders
+      parentId: null, // entry orders
       exchange: "nse",
       status: "FILLED",
       productType: "NRML",
