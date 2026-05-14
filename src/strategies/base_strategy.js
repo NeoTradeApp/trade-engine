@@ -6,7 +6,7 @@ const { REDIS, EVENT, STRATEGY } = require("@constants")
 const { generateRandomId, isMarketOpen, isEmpty, selectKeys, todayTimeIst } = require("@utils");
 
 const { INITIATED, STARTED, ENTERED, PAUSED, STOPPED, EXITED } = STRATEGY.STATUS;
-const MARKET_TICK_INTERVAL_MS = 1000;
+const MARKET_TICK_INTERVAL_MS = 600;
 
 function BaseStrategy(strategyId, userId) {
   this.strategyId = strategyId || generateRandomId(5);
@@ -30,11 +30,11 @@ function BaseStrategy(strategyId, userId) {
 
       if (this.isEntered()) {
         this.updatePnL();
+        this.publishPositionToRedis();
         this.checkExit();
       } else {
         this.checkEntry();
       }
-      this.publishPositionToRedis();
     } catch (error) {
       logger.error("Strategy Error:", this.constructor.name, error);
     }
@@ -78,6 +78,11 @@ function BaseStrategy(strategyId, userId) {
 
       this.position.orders.forEach((order, index) => {
         order.id = ordersInDb[index]?.id
+      });
+
+      redisService.publish(REDIS.CHANNEL.POSITION.NEW(this.serverId), {
+        userId: this.userId,
+        position: positionInDb,
       });
 
       return positionInDb;
@@ -132,6 +137,9 @@ function BaseStrategy(strategyId, userId) {
       const exitOrdersInDb = await createOrders(position?.id, exitOrders, transaction);
       transaction.commit();
 
+      Object.assign(this.position, closedPosition);
+      await this.publishPositionToRedis();
+
       await redisService.delete(REDIS.KEY.POSITIONS(this.strategyId, this.userId));
       this.position = {};
     } catch (error) {
@@ -146,7 +154,7 @@ function BaseStrategy(strategyId, userId) {
 
   this.publishPositionToRedis = () => {
     if (this.serverId) {
-      redisService.publish(REDIS.CHANNEL.POSITION_UPDATE(this.serverId), {
+      redisService.publish(REDIS.CHANNEL.POSITION.UPDATE(this.serverId), {
         userId: this.userId,
         position: this.position,
       });

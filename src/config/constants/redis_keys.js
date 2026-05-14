@@ -19,7 +19,10 @@ const CHANNEL = {
   KEY_SET: `__keyevent@${databaseIndex}__:set`,
   MARKET_FEED: "REDIS/CHANNEL/MARKET_FEED",
   STORE_MARKET_FEED: (SCRIP) => `REDIS/CHANNEL/STORE_MARKET_FEED/${SCRIP}`,
-  POSITION_UPDATE: (serverId) => `REDIS/CHANNEL/POSITION_UPDATE/${serverId}`,
+  POSITION: {
+    NEW: (serverId) => `REDIS/CHANNEL/POSITION/NEW/${serverId}`,
+    UPDATE: (serverId) => `REDIS/CHANNEL/POSITION/UPDATE/${serverId}`,
+  },
 };
 
 module.exports = {

@@ -24,9 +24,6 @@ const isMarketOpen = () => {
   return !isWeekend && now.isBetween(marketOpeningTime, marketClosingTIme);
 };
 
-const isCurrenTimeBefore = (time) => todayTimeIst().isBefore(todayTimeIst(time));
-const isCurrenTimeAfter = (time) => todayTimeIst().isAfter(todayTimeIst(time));
-
 const parseTimeToSeconds = (timeInStr) => {
   const multiplier = {
     "s": 1,
@@ -103,8 +100,6 @@ const setCallbackAtTime = (callback, time) => {
 
 module.exports = {
   todayTimeIst,
-  isCurrenTimeBefore,
-  isCurrenTimeAfter,
   parseTimeToSeconds,
   marketOpeningTime,
   marketClosingTIme,

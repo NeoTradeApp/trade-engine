@@ -20,7 +20,7 @@ function App() {
 
     // TODO: REMOVE
     // this.loadStrategies();
-    setTimeout(() => this.loadStrategies(), 5000);
+    setTimeout(() => this.loadStrategies(), 3000);
   };
 
   this.stop = async () => {

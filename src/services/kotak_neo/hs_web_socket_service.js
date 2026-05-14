@@ -6,7 +6,7 @@ const { isMarketOpen, isEmpty } = require("@utils");
 const { redisService } = require("../redis");
 const { marketDataParser } = require("./market_data_parser");
 
-const HEALTHCHECK_INTERVAL = 30000;
+const HEALTHCHECK_INTERVAL = 5000;
 
 function HSWebSocketService() {
   const url = "wss://mlhsm.kotaksecurities.com";
