@@ -6,7 +6,7 @@ const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
-function OptionBuyScalping(strategyId, userId) {
+function OptionSellScalping(strategyId, userId) {
   BaseStrategy.call(this, strategyId, userId);
 
   this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES;
@@ -15,7 +15,7 @@ function OptionBuyScalping(strategyId, userId) {
   const SHORT_POSITION = "SHORT";
   const LOT_SIZE = 65;
   const noOfLots = 2;
-  const TARGET = 30;
+  const TARGET = 15;
   const STOPLOSS = -15;
   const EMA_DISTANCE_THRESHOLD = 5;
   const TRADE_INTERVAL_IN_MINUTES = 1;
@@ -30,21 +30,21 @@ function OptionBuyScalping(strategyId, userId) {
   const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
   const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
 
-  let niftyOption = null;
+  let niftyOption2 = null;
 
   redisService.get(REDIS.KEY.POSITIONS(this.strategyId, this.userId)).then((position) => {
     if (position) {
       this.position = position;
 
-      if (!niftyOption) {
-        const optionType = this.position.direction === LONG_POSITION ? "CE" : "PE";
+      if (!niftyOption2) {
+        const optionType = this.position.direction === LONG_POSITION ? "PE" : "CE";
         const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
-        niftyOption = new NiftyOptionsWatchService(this.position.strikePrice, optionType, niftyWeeklyExpiry);
+        niftyOption2 = new NiftyOptionsWatchService(this.position.strikePrice, optionType, niftyWeeklyExpiry);
       }
 
       this.position.orders.forEach((order) => {
-        if (niftyOption) {
-          order.currentData = niftyOption;
+        if (niftyOption2) {
+          order.currentData = niftyOption2;
         }
       });
     }
@@ -53,12 +53,12 @@ function OptionBuyScalping(strategyId, userId) {
   const selectITMOption = (strikePrice, direction) => {
     if (!strikePrice) return;
 
-    if (!niftyOption) {
+    if (!niftyOption2) {
       const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
       if (direction === LONG_POSITION) {
-        niftyOption = new NiftyOptionsWatchService(strikePrice - 200, "CE", niftyWeeklyExpiry);
+        niftyOption2 = new NiftyOptionsWatchService(strikePrice + 100, "PE", niftyWeeklyExpiry);
       } else {
-        niftyOption = new NiftyOptionsWatchService(strikePrice + 200, "PE", niftyWeeklyExpiry);
+        niftyOption2 = new NiftyOptionsWatchService(strikePrice - 100, "CE", niftyWeeklyExpiry);
       }
     }
   };
@@ -86,15 +86,15 @@ function OptionBuyScalping(strategyId, userId) {
     if (!direction) return;
 
     selectITMOption(atmStrikePrice, direction);
-    if (!niftyOption.get("close")) return;
+    if (!niftyOption2.get("close")) return;
 
     this.enterPosition({
       ...preparePosition(),
       direction: direction,
       name: `SCALPING (${direction})`,
-      description: `Buy ${niftyOption.scrip}`,
+      description: `Sell ${niftyOption2.scrip}`,
       orders: [
-        prepareOrder(niftyOption, "BUY", noOfLots * LOT_SIZE),
+        prepareOrder(niftyOption2, "SELL", noOfLots * LOT_SIZE),
       ],
     });
   };
@@ -108,8 +108,8 @@ function OptionBuyScalping(strategyId, userId) {
         exitPrice: niftyFutures.get("close"),
       });
 
-      niftyOption.destroy();
-      niftyOption = null;
+      niftyOption2.destroy();
+      niftyOption2 = null;
 
       entryTime = todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes");
 
@@ -127,16 +127,16 @@ function OptionBuyScalping(strategyId, userId) {
   };
 
   this.updatePnL = () => {
-    const optionPrice = niftyOption.get("close");
-    this.position.pnl = pointsToAmount(optionPrice - this.position.optionPrice);
+    const optionPrice = niftyOption2.get("close");
+    this.position.pnl = pointsToAmount(this.position.optionPrice - optionPrice);
   };
 
   const preparePosition = () => {
-    const optionPrice = niftyOption.get("close");
+    const optionPrice = niftyOption2.get("close");
 
     return {
       optionPrice,
-      strikePrice: niftyOption?.strikePrice,
+      strikePrice: niftyOption2?.strikePrice,
       entryPrice: niftyFutures.get("close"),
 
       target: pointsToAmount(TARGET),
@@ -146,18 +146,18 @@ function OptionBuyScalping(strategyId, userId) {
     };
   };
 
-  const prepareOrder = (niftyOption, tnxType, quantity) => ({
-    currentData: niftyOption,
+  const prepareOrder = (niftyOption2, tnxType, quantity) => ({
+    currentData: niftyOption2,
     userId: this.userId,
     orderId: "paper trade",
 
-    name: `${niftyOption.strikePrice} ${niftyOption.optionType} ${niftyOption.optionExpiry}`,
-    symbol: niftyOption.scrip,
+    name: `${niftyOption2.strikePrice} ${niftyOption2.optionType} ${niftyOption2.optionExpiry}`,
+    symbol: niftyOption2.scrip,
 
-    type: niftyOption.optionType,
-    scrip: niftyOption.scrip,
+    type: niftyOption2.optionType,
+    scrip: niftyOption2.scrip,
     tnxType,
-    price: niftyOption.get("close"),
+    price: niftyOption2.get("close"),
     brokerage: 10,
     taxes: 6,
 
@@ -172,9 +172,9 @@ function OptionBuyScalping(strategyId, userId) {
   this.stop = () => {
     baseStop();
     // niftyFutures.destroy();
-    niftyOption.destroy();
-    niftyOption.destroy();
+    niftyOption2.destroy();
+    niftyOption2.destroy();
   };
 }
 
-module.exports = OptionBuyScalping;
+module.exports = OptionSellScalping;
