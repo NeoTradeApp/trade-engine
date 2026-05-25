@@ -18,7 +18,7 @@ function OptionSellScalping(strategyId, userId) {
   const TARGET = 15;
   const STOPLOSS = -15;
   const EMA_DISTANCE_THRESHOLD = 5;
-  const TRADE_INTERVAL_IN_MINUTES = 1;
+  const TRADE_INTERVAL_IN_MINUTES = 10;
   const TRAILING_STOPLOSS = 15;
   const TRAIL_STOPLOSS_AT = 15;
 

@@ -18,7 +18,7 @@ function LongShortSyntheticFutures(strategyId, userId) {
   const STOPLOSS = -30;
   const TRAILING_STOPLOSS = 30;
   const TRAIL_STOPLOSS_AT = 30;
-  const TRADE_INTERVAL_IN_MINUTES = 5;
+  const TRADE_INTERVAL_IN_MINUTES = 11;
   const EMA_DISTANCE_THRESHOLD = 30;
 
   const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;

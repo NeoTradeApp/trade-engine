@@ -19,7 +19,7 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
   const STOPLOSS = -50;
   const TRAILING_STOPLOSS = 75;
   const TRAIL_STOPLOSS_AT = 25;
-  const TRADE_INTERVAL_IN_MINUTES = 5;
+  const TRADE_INTERVAL_IN_MINUTES = 11;
 
   const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 

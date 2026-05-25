@@ -5,6 +5,7 @@ const LongShortSyntheticFutures = require("./long_short_synthetic_futures");
 const OptionBuyScalping = require("./option_buy_scalping");
 const LongShortSyntheticFutures50200 = require("./long_short_synthetic_futures_50_200");
 const OptionSellScalping = require("./option_sell_scalping");
+const OptionBuyScalping1515 = require("./option_buy_scalping_15_15");
 
 function UserStrategies(userId) {
   this.userId = userId;
@@ -15,6 +16,7 @@ function UserStrategies(userId) {
     [STRATEGY.OPTION_BUY_SCALPING]: OptionBuyScalping,
     [STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES_50_200]: LongShortSyntheticFutures50200,
     [STRATEGY.OPTION_SELL_SCALPING]: OptionSellScalping,
+    [STRATEGY.OPTION_BUY_SCALPING_15_15]: OptionBuyScalping1515,
   };
 
   this.deployAll = async () => {

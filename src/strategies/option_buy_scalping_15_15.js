@@ -6,7 +6,7 @@ const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
-function OptionBuyScalping(strategyId, userId) {
+function OptionBuyScalping1515(strategyId, userId) {
   BaseStrategy.call(this, strategyId, userId);
 
   this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES;
@@ -15,7 +15,7 @@ function OptionBuyScalping(strategyId, userId) {
   const SHORT_POSITION = "SHORT";
   const LOT_SIZE = 65;
   const noOfLots = 2;
-  const TARGET = 30;
+  const TARGET = 15;
   const STOPLOSS = -15;
   const EMA_DISTANCE_THRESHOLD = 5;
   const TRADE_INTERVAL_IN_MINUTES = 10;
@@ -177,4 +177,4 @@ function OptionBuyScalping(strategyId, userId) {
   };
 }
 
-module.exports = OptionBuyScalping;
+module.exports = OptionBuyScalping1515;
