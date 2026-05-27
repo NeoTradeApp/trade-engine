@@ -34,4 +34,4 @@ function NiftyFuturesWatchService(expiry, intervalInMinutes, bufferSize) {
 const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday");
 const niftyFuturesWatchService = new NiftyFuturesWatchService(niftyMonthlyExpiry, 1, 10);
 
-module.exports = { niftyFuturesWatchService };
+module.exports = { NiftyFuturesWatchService, niftyFuturesWatchService };
