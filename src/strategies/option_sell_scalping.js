@@ -30,21 +30,21 @@ function OptionSellScalping(strategyId, userId) {
   const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
   const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
 
-  let niftyOption2 = null;
+  let niftyOption = null;
 
   redisService.get(REDIS.KEY.POSITIONS(this.strategyId, this.userId)).then((position) => {
     if (position) {
       this.position = position;
 
-      if (!niftyOption2) {
+      if (!niftyOption) {
         const optionType = this.position.direction === LONG_POSITION ? "PE" : "CE";
         const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
-        niftyOption2 = new NiftyOptionsWatchService(this.position.strikePrice, optionType, niftyWeeklyExpiry);
+        niftyOption = new NiftyOptionsWatchService(this.position.strikePrice, optionType, niftyWeeklyExpiry);
       }
 
       this.position.orders.forEach((order) => {
-        if (niftyOption2) {
-          order.currentData = niftyOption2;
+        if (niftyOption) {
+          order.currentData = niftyOption;
         }
       });
     }
@@ -53,12 +53,12 @@ function OptionSellScalping(strategyId, userId) {
   const selectITMOption = (strikePrice, direction) => {
     if (!strikePrice) return;
 
-    if (!niftyOption2) {
+    if (!niftyOption) {
       const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
       if (direction === LONG_POSITION) {
-        niftyOption2 = new NiftyOptionsWatchService(strikePrice + 100, "PE", niftyWeeklyExpiry);
+        niftyOption = new NiftyOptionsWatchService(strikePrice + 100, "PE", niftyWeeklyExpiry);
       } else {
-        niftyOption2 = new NiftyOptionsWatchService(strikePrice - 100, "CE", niftyWeeklyExpiry);
+        niftyOption = new NiftyOptionsWatchService(strikePrice - 100, "CE", niftyWeeklyExpiry);
       }
     }
   };
@@ -86,15 +86,15 @@ function OptionSellScalping(strategyId, userId) {
     if (!direction) return;
 
     selectITMOption(atmStrikePrice, direction);
-    if (!niftyOption2.get("close")) return;
+    if (!niftyOption.get("close")) return;
 
     this.enterPosition({
       ...preparePosition(),
       direction: direction,
       name: `SCALPING (${direction})`,
-      description: `Sell ${niftyOption2.scrip}`,
+      description: `Sell ${niftyOption.scrip}`,
       orders: [
-        prepareOrder(niftyOption2, "SELL", noOfLots * LOT_SIZE),
+        prepareOrder(niftyOption, "SELL", noOfLots * LOT_SIZE),
       ],
     });
   };
@@ -108,8 +108,8 @@ function OptionSellScalping(strategyId, userId) {
         exitPrice: niftyFutures.get("close"),
       });
 
-      niftyOption2.destroy();
-      niftyOption2 = null;
+      niftyOption.destroy();
+      niftyOption = null;
 
       entryTime = todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes");
 
@@ -127,16 +127,16 @@ function OptionSellScalping(strategyId, userId) {
   };
 
   this.updatePnL = () => {
-    const optionPrice = niftyOption2.get("close");
+    const optionPrice = niftyOption.get("close");
     this.position.pnl = pointsToAmount(this.position.optionPrice - optionPrice);
   };
 
   const preparePosition = () => {
-    const optionPrice = niftyOption2.get("close");
+    const optionPrice = niftyOption.get("close");
 
     return {
       optionPrice,
-      strikePrice: niftyOption2?.strikePrice,
+      strikePrice: niftyOption?.strikePrice,
       entryPrice: niftyFutures.get("close"),
 
       target: pointsToAmount(TARGET),
@@ -146,18 +146,18 @@ function OptionSellScalping(strategyId, userId) {
     };
   };
 
-  const prepareOrder = (niftyOption2, tnxType, quantity) => ({
-    currentData: niftyOption2,
+  const prepareOrder = (niftyOption, tnxType, quantity) => ({
+    currentData: niftyOption,
     userId: this.userId,
     orderId: "paper trade",
 
-    name: `${niftyOption2.strikePrice} ${niftyOption2.optionType} ${niftyOption2.optionExpiry}`,
-    symbol: niftyOption2.scrip,
+    name: `${niftyOption.strikePrice} ${niftyOption.optionType} ${niftyOption.optionExpiry}`,
+    symbol: niftyOption.scrip,
 
-    type: niftyOption2.optionType,
-    scrip: niftyOption2.scrip,
+    type: niftyOption.optionType,
+    scrip: niftyOption.scrip,
     tnxType,
-    price: niftyOption2.get("close"),
+    price: niftyOption.get("close"),
     brokerage: 10,
     taxes: 6,
 
@@ -172,8 +172,8 @@ function OptionSellScalping(strategyId, userId) {
   this.stop = () => {
     baseStop();
     // niftyFutures.destroy();
-    niftyOption2.destroy();
-    niftyOption2.destroy();
+    niftyOption.destroy();
+    niftyOption.destroy();
   };
 }
 

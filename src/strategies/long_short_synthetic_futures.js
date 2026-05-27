@@ -29,7 +29,8 @@ function LongShortSyntheticFutures(strategyId, userId) {
   const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
   const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
 
-  let niftyOptionCE = niftyOptionPE = null;
+  let niftyOptionCE = null;
+  let niftyOptionPE = null;
 
   redisService.get(REDIS.KEY.POSITIONS(this.strategyId, this.userId)).then((position) => {
     if (position) {
