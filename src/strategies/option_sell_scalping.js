@@ -56,9 +56,9 @@ function OptionSellScalping(strategyId, userId) {
     if (!niftyOption) {
       const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
       if (direction === LONG_POSITION) {
-        niftyOption = new NiftyOptionsWatchService(strikePrice + 100, "PE", niftyWeeklyExpiry);
+        niftyOption = new NiftyOptionsWatchService(strikePrice - 100, "PE", niftyWeeklyExpiry);
       } else {
-        niftyOption = new NiftyOptionsWatchService(strikePrice - 100, "CE", niftyWeeklyExpiry);
+        niftyOption = new NiftyOptionsWatchService(strikePrice + 100, "CE", niftyWeeklyExpiry);
       }
     }
   };
