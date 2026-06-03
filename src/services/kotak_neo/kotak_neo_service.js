@@ -9,7 +9,7 @@ const { getErrorMessage, downloadAndParseCsv, getDateOfNext, getMonthEndDateOf }
 const { KOTAK_NEO_MARKET_DATA_BASE_URL, KOTAK_NEO_ACCESS_TOKEN, NIFTY_LAST_TRADED_VALUE } = process.env;
 const KOTAK_NEO_EXPIRY_ADDITION = 315511200;
 
-const OPTION_CHAIN_DEPTH = 7;
+const OPTION_CHAIN_DEPTH = 10;
 const NIFTY_STRIKE_PRICE_INTERVAL = 50;
 const { NIFTY_WEEKLY_EXPIRY, NIFTY_MONTHLY_EXPIRY } = process.env;
 

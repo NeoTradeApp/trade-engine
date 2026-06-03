@@ -24,7 +24,7 @@ function BaseStrategy(strategyId, userId) {
   this.processMarketTick = () => {
     try {
       if (!isMarketOpen()) {
-        stopMarketFeed();
+        // stopMarketFeed();
         return;
       }
 

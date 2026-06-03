@@ -4,7 +4,9 @@ const { appEvents } = require("@events");
 const { EVENT, REDIS } = require("@constants");
 const { debounce, isEmpty } = require("@utils");
 
-function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize) {
+function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize, options) {
+  const { storeCandlesData }  = options || {};
+
   this.candlesData = [];
   this.intervalInMinutes = intervalInMinutes || 1;
   this.bufferSize = bufferSize || 10;
@@ -16,7 +18,7 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize) {
 
   let candlesBufferToPublish = [];
 
-  this.publishCandlesToRedis = false;
+  this.storeCandlesData = !!storeCandlesData;
 
   this.onHistoryLoad = () => { };
   this.loadHistory = async () => {
@@ -47,7 +49,7 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize) {
     }
 
     redisService.set(REDIS.KEY.MARKET_WATCH.SCRIP(this.scrip), this.candlesData, "12h");
-    this.publishCandlesToRedis && bufferCandlesAndPublish(candle);
+    this.storeCandlesData && bufferCandlesAndPublish(candle);
 
     return this.candlesData;
   };
