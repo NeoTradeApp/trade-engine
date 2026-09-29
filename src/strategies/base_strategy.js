@@ -13,14 +13,53 @@ function BaseStrategy(strategyId, userId) {
   this.strategyId = strategyId || generateRandomId(5);
   this.userId = userId;
 
-  (async () => {
-    const userDetails = await redisService.get(REDIS.KEY.USER_INFO(this.userId));
-    this.serverId = userDetails?.serverId || DEFAULT_SERVER_ID;
-  })();
-
-  this.position = {};
+  this.properties = {};
 
   let marketFeedTimer = null;
+
+  this.initializeProperties = () => { };
+  this.isEntered = () => !isEmpty(this.position);
+  this.checkEntry = () => { };
+  this.checkExit = () => { };
+  this.updatePnL = () => { };
+  this.onPropertiesLoad = () => { };
+
+  const parseProperties = {
+    entryTime: (time) => moment(time),
+    exitTime: (time) => moment(time),
+  }
+
+  this.loadPropertiesFromRedis = async () => {
+    const userDetails = await redisService.get(REDIS.KEY.USER_INFO(this.userId));
+    this.serverId = userDetails?.serverId || DEFAULT_SERVER_ID;
+
+    const propertiesFromRedis = await redisService.get(REDIS.KEY.STRATEGY_PROPERTIES(this.strategyId, this.userId));
+
+    if (propertiesFromRedis) {
+      this.properties = propertiesFromRedis;
+
+      Object.entries(this.properties).forEach((key, value) => {
+        this.properties[key] = parseProperties[key](value);
+      });
+
+      this.onPropertiesLoad(this.properties);
+    } else {
+      this.initializeProperties();
+      this.savePropertiesToRedis();
+    }
+
+    this.position = this.properties.position || {};
+  };
+
+  this.updateProperties = (props) => {
+    Object.assign(this.properties, props);
+    this.position = this.properties.position;
+
+    this.savePropertiesToRedis();
+  };
+
+  this.savePropertiesToRedis = () =>
+    redisService.set(REDIS.KEY.STRATEGY_PROPERTIES(this.strategyId, this.userId), this.properties, "8h");
 
   this.processMarketTick = () => {
     try {
@@ -34,6 +73,9 @@ function BaseStrategy(strategyId, userId) {
         this.publishPositionToRedis();
         this.checkExit();
       } else {
+        const { entryTime, exitTime } = this.properties;
+        if (todayTimeIst().isBefore(entryTime) || todayTimeIst().isAfter(exitTime)) return;
+
         this.checkEntry();
       }
     } catch (error) {
@@ -61,32 +103,28 @@ function BaseStrategy(strategyId, userId) {
     stopMarketFeed();
   };
 
-  this.isEntered = () => !isEmpty(this.position);
-  this.checkEntry = () => { };
-  this.checkExit = () => { };
-  this.updatePnL = () => { };
-
-  this.enterPosition = async (position) => {
+  this.enterPosition = async (pos) => {
     const transaction = await sequelize.transaction();
     try {
-      const positionInDb = await createPosition(position, transaction);
-      this.position = { ...positionInDb, ...position };
-      this.savePositionToRedis();
+      const positionInDb = await createPosition(pos, transaction);
+      const position = { ...positionInDb, ...pos };
 
-      const { orders } = position || {};
+      const { orders } = pos || {};
       const ordersInDb = await createOrders(positionInDb?.id, orders, transaction);
       transaction.commit();
 
-      this.position.orders.forEach((order, index) => {
+      position.orders.forEach((order, index) => {
         order.id = ordersInDb[index]?.id
       });
 
+      this.updateProperties({ position });
+
       redisService.publish(REDIS.CHANNEL.POSITION.NEW(this.serverId), {
         userId: this.userId,
-        position: positionInDb,
+        position: position,
       });
 
-      return positionInDb;
+      return position;
     } catch (error) {
       transaction.rollback();
       logger.error("Strategy Error:", this.constructor.name, "enterPosition", error);
@@ -141,13 +179,12 @@ function BaseStrategy(strategyId, userId) {
       exitOrders.forEach((order, index) => {
         order.id = exitOrdersInDb[index]?.id
       });
-      this.position.orders.push(...exitOrders);
+      position.orders.push(...exitOrders);
 
-      Object.assign(this.position, closedPosition);
+      this.position = { ...position, ...closedPosition };
       await this.publishPositionToRedis();
 
-      await redisService.delete(REDIS.KEY.POSITIONS(this.strategyId, this.userId));
-      this.position = {};
+      this.updateProperties({ position: undefined });
     } catch (error) {
       transaction.rollback();
       logger.error("Strategy Error:", this.constructor.name, "exitPosition", error);
@@ -155,8 +192,27 @@ function BaseStrategy(strategyId, userId) {
     }
   };
 
-  this.savePositionToRedis = () =>
-    redisService.set(REDIS.KEY.POSITIONS(this.strategyId, this.userId), this.position, "8h");
+  this.prepareOrder = (niftyOption, tnxType, quantity) => ({
+    currentData: niftyOption,
+    userId: this.userId,
+    orderId: "paper trade",
+
+    name: `${niftyOption.strikePrice} ${niftyOption.optionType} ${niftyOption.optionExpiry}`,
+    symbol: niftyOption.scrip,
+
+    type: niftyOption.optionType,
+    scrip: niftyOption.scrip,
+    tnxType,
+    price: niftyOption.get("close"),
+    brokerage: BROKERAGE,
+    taxes: TAXES,
+
+    quantity,
+    filledQuantity: quantity,
+
+    serviceProviderUserId: this.userId,
+    serviceProviderName: "paper trade",
+  });
 
   this.publishPositionToRedis = () => {
     if (this.serverId) {
@@ -213,6 +269,8 @@ function BaseStrategy(strategyId, userId) {
 
     return await Order.bulkCreate(orderPayloads, { transaction, returning: true });
   };
+
+  this.loadPropertiesFromRedis();
 }
 
 module.exports = BaseStrategy;

@@ -23,23 +23,26 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
   const BROKERAGE = 10;
   const TAXES = 15;
 
-  const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
-
-  let entryTime = todayTimeIst({ hour: 9, minute: 45 });
-  let exitTime = todayTimeIst({ hour: 15, minute: 14 });
-
-  const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
-  const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
-
   let niftyOptionCE = null;
   let niftyOptionPE = null;
 
-  redisService.get(REDIS.KEY.POSITIONS(this.strategyId, this.userId)).then((position) => {
-    if (position) {
-      this.position = position;
-      selectATMOptions(this.position.strikePrice);
+  const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 
-      this.position.orders.forEach((order) => {
+  this.initializeProperties = () => {
+    this.properties = {
+      entryTime: todayTimeIst({ hour: 9, minute: 45 }),
+      exitTime: todayTimeIst({ hour: 15, minute: 14 }),
+      previousTradeDirection: "",
+    };
+  };
+
+  this.onPropertiesLoad = (properties) => {
+    const position = properties.position;
+
+    if (position) {
+      selectATMOptions(position.strikePrice);
+
+      position.orders.forEach((order) => {
         const niftyOption = [niftyOptionCE, niftyOptionPE].find((niftyOption) =>
           niftyOption && order.scrip === niftyOption.scrip
         );
@@ -48,7 +51,7 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
         }
       })
     }
-  });
+  };
 
   const selectATMOptions = (strikePrice) => {
     if (!strikePrice) return;
@@ -64,8 +67,6 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
   };
 
   this.checkEntry = () => {
-    if (isCurrentTimeBefore(entryTime) || isCurrentTimeAfter(exitTime)) return;
-
     const price = niftyFutures.get("close");
     if (!price) return;
 
@@ -77,9 +78,9 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
     const { ema, trend } = niftyFutures.get("indicators") || {};
 
     // Reverse the position direction based on previous trade else follow the trend.
-    if (this.previousTradeDirection === LONG_POSITION) {
+    if (this.properties.previousTradeDirection === LONG_POSITION) {
       enterShort();
-    } else if (this.previousTradeDirection === SHORT_POSITION) {
+    } else if (this.properties.previousTradeDirection === SHORT_POSITION) {
       enterLong();
     } else if (trend === STRATEGY.TREND.UPTREND) {
       enterLong();
@@ -89,10 +90,12 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
   };
 
   this.checkExit = () => {
+    const { exitTime } = this.properties;
     const { pnl, target, stoploss, trailStoplossAt, trailingStoploss } = this.position;
 
-    if (pnl <= stoploss || pnl >= target || isCurrentTimeAfter(exitTime)) {
-      this.previousTradeDirection = this.position.direction;
+    if (pnl <= stoploss || pnl >= target || todayTimeIst().isAfter(exitTime)) {
+      const previousTradeDirection = this.position.direction;
+
       this.exitPosition({
         ...this.position,
         exitPrice: niftyFutures.get("close"),
@@ -103,7 +106,10 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
       niftyOptionCE = null;
       niftyOptionPE = null;
 
-      entryTime = todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes");
+      this.updateProperties({
+        previousTradeDirection,
+        entryTime: todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes"),
+      });
 
       return;
     }
@@ -113,7 +119,8 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
         stoploss: trailStoplossAt - trailingStoploss,
         trailStoplossAt: trailStoplossAt + pointsToAmount(TRAIL_STOPLOSS_AT),
       });
-      this.savePositionToRedis();
+
+      this.updateProperties({ properties: this.properties });
     }
   };
 
@@ -144,8 +151,8 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
       name: `NIFTY SYNTH FUT (${LONG_POSITION})`,
       description: `Buy ${niftyOptionCE.scrip} | Sell ${niftyOptionPE.scrip}`,
       orders: [
-        prepareOrder(niftyOptionCE, "BUY", noOfLots * LOT_SIZE),
-        prepareOrder(niftyOptionPE, "SELL", noOfLots * LOT_SIZE),
+        this.prepareOrder(niftyOptionCE, "BUY", noOfLots * LOT_SIZE),
+        this.prepareOrder(niftyOptionPE, "SELL", noOfLots * LOT_SIZE),
       ],
     });
   };
@@ -158,8 +165,8 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
       name: `NIFTY SYNTH FUT (${SHORT_POSITION})`,
       description: `BUY ${niftyOptionPE.scrip} | SELL ${niftyOptionCE.scrip}`,
       orders: [
-        prepareOrder(niftyOptionPE, "BUY", noOfLots * LOT_SIZE),
-        prepareOrder(niftyOptionCE, "SELL", noOfLots * LOT_SIZE),
+        this.prepareOrder(niftyOptionPE, "BUY", noOfLots * LOT_SIZE),
+        this.prepareOrder(niftyOptionCE, "SELL", noOfLots * LOT_SIZE),
       ],
     });
   };
@@ -180,28 +187,6 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
       trailStoplossAt: pointsToAmount(TRAIL_STOPLOSS_AT),
     };
   };
-
-  const prepareOrder = (niftyOption, direction, quantity) => ({
-    currentData: niftyOption,
-    userId: this.userId,
-    orderId: "paper trade",
-
-    name: `${niftyOption.strikePrice} ${niftyOption.optionType} ${niftyOption.optionExpiry}`,
-    symbol: niftyOption.scrip,
-
-    type: niftyOption.optionType,
-    scrip: niftyOption.scrip,
-    tnxType: direction,
-    price: niftyOption.get("close"),
-    brokerage: BROKERAGE,
-    taxes: TAXES,
-
-    quantity,
-    filledQuantity: quantity,
-
-    serviceProviderUserId: this.userId,
-    serviceProviderName: "paper trade",
-  });
 
   const baseStop = this.stop;
   this.stop = () => {

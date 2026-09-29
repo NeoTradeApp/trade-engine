@@ -22,33 +22,35 @@ function OptionSellScalpingHft(strategyId, userId) {
   const BROKERAGE = 10;
   const TAXES = 40;
 
-  const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
-
-  let entryTime = todayTimeIst({ hour: 9, minute: 30 });
-  let exitTime = todayTimeIst({ hour: 15, minute: 14 });
-
-  const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
-  const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
-
   let niftyOption = null;
 
-  redisService.get(REDIS.KEY.POSITIONS(this.strategyId, this.userId)).then((position) => {
-    if (position) {
-      this.position = position;
+  const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 
+  this.initializeProperties = () => {
+    this.properties = {
+      entryTime: todayTimeIst({ hour: 9, minute: 30 }),
+      exitTime: todayTimeIst({ hour: 15, minute: 14 }),
+      previousTradeDirection: "",
+    };
+  };
+
+  this.onPropertiesLoad = (properties) => {
+    const position = properties.position;
+
+    if (position) {
       if (!niftyOption) {
-        const optionType = this.position.direction === LONG_POSITION ? "PE" : "CE";
+        const optionType = position.direction === LONG_POSITION ? "PE" : "CE";
         const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
-        niftyOption = new NiftyOptionsWatchService(this.position.strikePrice, optionType, niftyWeeklyExpiry);
+        niftyOption = new NiftyOptionsWatchService(position.strikePrice, optionType, niftyWeeklyExpiry);
       }
 
-      this.position.orders.forEach((order) => {
+      position.orders.forEach((order) => {
         if (niftyOption) {
           order.currentData = niftyOption;
         }
       });
     }
-  });
+  };
 
   const selectOTMOption = (strikePrice, direction) => {
     if (!strikePrice) return;
@@ -64,8 +66,6 @@ function OptionSellScalpingHft(strategyId, userId) {
   };
 
   this.checkEntry = () => {
-    if (isCurrentTimeBefore(entryTime) || isCurrentTimeAfter(exitTime)) return;
-
     const price = niftyIndex.get("close");
     if (!price) return;
 
@@ -74,13 +74,11 @@ function OptionSellScalpingHft(strategyId, userId) {
 
     if (distance > EMA_DISTANCE_THRESHOLD) return;
 
-    const atmStrikePrice = Math.round(price / 100) * 100;
-
     let direction;
     // Reverse the position direction based on previous trade else follow the trend.
-    if (this.previousTradeDirection === LONG_POSITION) {
+    if (this.properties.previousTradeDirection === LONG_POSITION) {
       direction = SHORT_POSITION;
-    } else if (this.previousTradeDirection === SHORT_POSITION) {
+    } else if (this.properties.previousTradeDirection === SHORT_POSITION) {
       direction = LONG_POSITION;
     } else if (trend === STRATEGY.TREND.UPTREND) {
       direction = LONG_POSITION;
@@ -90,7 +88,9 @@ function OptionSellScalpingHft(strategyId, userId) {
 
     if (!direction) return;
 
+    const atmStrikePrice = Math.round(price / 100) * 100;
     selectOTMOption(atmStrikePrice, direction);
+
     if (!niftyOption.get("close")) return;
 
     this.enterPosition({
@@ -99,16 +99,18 @@ function OptionSellScalpingHft(strategyId, userId) {
       name: `SCALPING (${direction})`,
       description: `Sell ${niftyOption.scrip}`,
       orders: [
-        prepareOrder(niftyOption, "SELL", noOfLots * LOT_SIZE),
+        this.prepareOrder(niftyOption, "SELL", noOfLots * LOT_SIZE),
       ],
     });
   };
 
   this.checkExit = () => {
+    const { exitTime } = this.properties;
     const { pnl, target, stoploss } = this.position;
 
-    if (pnl <= stoploss || pnl >= target || isCurrentTimeAfter(exitTime)) {
-      this.previousTradeDirection = this.position.direction;
+    if (pnl <= stoploss || pnl >= target || todayTimeIst().isAfter(exitTime)) {
+      const previousTradeDirection = this.position.direction;
+
       this.exitPosition({
         ...this.position,
         exitPrice: niftyIndex.get("close"),
@@ -117,9 +119,10 @@ function OptionSellScalpingHft(strategyId, userId) {
       niftyOption.destroy();
       niftyOption = null;
 
-      entryTime = todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes");
-
-      return;
+      this.updateProperties({
+        previousTradeDirection,
+        entryTime: todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes"),
+      });
     }
   };
 

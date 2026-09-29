@@ -16,29 +16,29 @@ function OptionSellStraddle(strategyId, userId) {
   const noOfLots = 1;
   const TARGET = 30;
   const STOPLOSS = -30;
-  const EACH_LEG_STOPLOSS_PERCENT = 20;
   const BROKERAGE = 10;
   const TAXES = 40;
   const TRADE_INTERVAL_IN_MINUTES = 60;
 
   const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 
-  let entryTime = todayTimeIst({ hour: 9, minute: 20 });
-  let exitTime = todayTimeIst({ hour: 15, minute: 14 });
-
-  const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
-  const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
-
   let niftyOptionCE = null;
   let niftyOptionPE = null;
 
-  redisService.get(REDIS.KEY.POSITIONS(this.strategyId, this.userId)).then((position) => {
+  this.initializeProperties = () => {
+    this.properties = {
+      entryTime: todayTimeIst({ hour: 9, minute: 20 }),
+      exitTime: todayTimeIst({ hour: 15, minute: 14 }),
+    };
+  };
+
+  this.onPropertiesLoad = (properties) => {
+    const position = properties.position;
+
     if (position) {
-      this.position = position;
+      selectATMOptions(position.strikePrice);
 
-      selectATMOptions(this.position.strikePrice);
-
-      this.position.orders.forEach((order) => {
+      position.orders.forEach((order) => {
         const niftyOption = [niftyOptionCE, niftyOptionPE].find((niftyOption) =>
           niftyOption && order.scrip === niftyOption.scrip
         );
@@ -47,7 +47,7 @@ function OptionSellStraddle(strategyId, userId) {
         }
       });
     }
-  });
+  }
 
   const selectATMOptions = (strikePrice) => {
     if (!strikePrice) return;
@@ -63,8 +63,6 @@ function OptionSellStraddle(strategyId, userId) {
   };
 
   this.checkEntry = () => {
-    if (isCurrentTimeBefore(entryTime) || isCurrentTimeAfter(exitTime)) return;
-
     const price = niftyIndex.get("close");
     if (!price) return;
 
@@ -79,16 +77,17 @@ function OptionSellStraddle(strategyId, userId) {
       direction: NEUTRAL_POSITION,
       description: `SELL ${niftyOptionCE.scrip} | SELL ${niftyOptionPE.scrip}`,
       orders: [
-        prepareOrder(niftyOptionPE, "SELL", noOfLots * LOT_SIZE),
-        prepareOrder(niftyOptionCE, "SELL", noOfLots * LOT_SIZE),
+        this.prepareOrder(niftyOptionPE, "SELL", noOfLots * LOT_SIZE),
+        this.prepareOrder(niftyOptionCE, "SELL", noOfLots * LOT_SIZE),
       ],
     });
   };
 
   this.checkExit = () => {
+    const { exitTime } = this.properties;
     const { pnl, target, stoploss } = this.position;
 
-    if (pnl <= stoploss || pnl >= target || isCurrentTimeAfter(exitTime)) {
+    if (pnl <= stoploss || pnl >= target || todayTimeIst().isAfter(exitTime)) {
       this.exitPosition({
         ...this.position,
         exitPrice: niftyIndex.get("close"),
@@ -99,10 +98,9 @@ function OptionSellStraddle(strategyId, userId) {
       niftyOptionCE = null;
       niftyOptionPE = null;
 
-      entryTime = todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes");
-      // entryTime = todayTimeIst({ hour: 15, minute: 15 });
-
-      return;
+      this.updateProperties({
+        entryTime: todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes"),
+      });
     }
   };
 
@@ -131,28 +129,6 @@ function OptionSellStraddle(strategyId, userId) {
       stoploss: pointsToAmount(STOPLOSS),
     };
   };
-
-  const prepareOrder = (niftyOption, tnxType, quantity) => ({
-    currentData: niftyOption,
-    userId: this.userId,
-    orderId: "paper trade",
-
-    name: `${niftyOption.strikePrice} ${niftyOption.optionType} ${niftyOption.optionExpiry}`,
-    symbol: niftyOption.scrip,
-
-    type: niftyOption.optionType,
-    scrip: niftyOption.scrip,
-    tnxType,
-    price: niftyOption.get("close"),
-    brokerage: BROKERAGE,
-    taxes: TAXES,
-
-    quantity,
-    filledQuantity: quantity,
-
-    serviceProviderUserId: this.userId,
-    serviceProviderName: "paper trade",
-  });
 
   const baseStop = this.stop;
   this.stop = () => {

@@ -10,6 +10,7 @@ const KEY = {
     SCRIP: (scrip) => `REDIS/KEY/MARKET_WATCH/${scrip}`,
   },
   POSITIONS: (strategyId, userId) => `REDIS/KEY/POSITIONS/${strategyId}/${userId}`,
+  STRATEGY_PROPERTIES: (strategyId, userId) => `REDIS/KEY/STRATEGY_PROPERTIES/${strategyId}/${userId}`,
   USER_INFO: (userId) => `REDIS/KEY/USER_INFO/${userId}`,
 };
 
