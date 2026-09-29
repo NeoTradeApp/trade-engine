@@ -1072,25 +1072,31 @@
       userSocket.onopen();
     };
     ws.onmessage = function (c) {
-      let outData = null;
-      let inData = c.data;
-      if (inData instanceof ArrayBuffer) {
-        let jsonData = hsWrapper.parseData(inData);
-        if (jsonData) {
-          outData = isEncyptOut ? encodeData(jsonData) : jsonData;
+      try {
+        let outData = null;
+        let inData = c.data;
+        if (inData instanceof ArrayBuffer) {
+          let jsonData = hsWrapper.parseData(inData);
+          if (jsonData) {
+            outData = isEncyptOut ? encodeData(jsonData) : jsonData;
+          }
+        } else {
+          outData = isEncyptIn
+            ? isEncyptOut
+              ? inData
+              : decodeData(inData)
+            : isEncyptOut
+              ? encodeData(inData)
+              : inData;
         }
-      } else {
-        outData = isEncyptIn
-          ? isEncyptOut
-            ? inData
-            : decodeData(inData)
-          : isEncyptOut
-          ? encodeData(inData)
-          : inData;
-      }
-      HSDebug(outData);
-      if (outData) {
-        userSocket.onmessage(outData);
+        HSDebug(outData);
+        if (outData) {
+          userSocket.onmessage(outData);
+        }
+      } catch (error) {
+        userSocket.OPEN = 0;
+        userSocket.readyState = 0;
+        userSocket.onerror(error);
       }
     };
     ws.onclose = function () {

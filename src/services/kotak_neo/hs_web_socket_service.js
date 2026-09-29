@@ -89,7 +89,13 @@ function HSWebSocketService() {
   };
 
   this.isOpen = () => this.userWS && this.userWS.OPEN && this.userWS.readyState;
-  this.close = () => this.isOpen() && this.userWS.close();
+  this.close = () => {
+    try {
+      this.isOpen() && this.userWS.close()
+    } catch (error) {
+      logger.error("HSWebSocketService, Error in closing:", error);
+    }
+  };
   this.ping = () => this.isOpen() && this.userWS.ping();
 
   const subscribe = (type, scrips) =>
