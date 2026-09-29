@@ -1,4 +1,10 @@
-const { redisService, KotakNeo, niftyFuturesWatchService: niftyFutures } = require("@services");
+const {
+  redisService,
+  KotakNeo,
+  niftyIndexWatchService: niftyIndex,
+  niftyFuturesWatchService: niftyFutures,
+  healthcheck,
+} = require("@services");
 const { kotakNeoService, hsWebSocketService, marketDataParser } = KotakNeo;
 const { appEvents } = require("@events");
 const { EVENT, SCRIPS } = require("@constants");
@@ -7,9 +13,12 @@ const { UserStrategies } = require("@strategies");
 // TODO: REMOVE
 // require("./services/market_simulator");
 
+const HEALTHCHECK_INTERVAL = 60_000;
+
 function App() {
   let userStrategies = null;
   let removeHsConnectEvent = null;
+  let healthcheckTimer = null;
 
   this.start = async () => {
     await redisService.connect();
@@ -21,6 +30,8 @@ function App() {
     // TODO: REMOVE
     // this.loadStrategies();
     setTimeout(() => this.loadStrategies(), 3000);
+
+    healthcheckTimer = setInterval(() => healthcheck.beat(), HEALTHCHECK_INTERVAL);
   };
 
   this.stop = async () => {
@@ -33,7 +44,13 @@ function App() {
     userStrategies && userStrategies.stopAll();
     userStrategies = null;
 
+    niftyIndex.destroy();
     niftyFutures.destroy();
+
+    if (healthcheckTimer) {
+      clearInterval(healthcheckTimer);
+      healthcheckTimer = null;
+    }
   };
 
   this.configScrips = async () => {
@@ -54,6 +71,7 @@ function App() {
   };
 
   this.configWatchers = () => {
+    niftyIndex.loadHistory();
     niftyFutures.loadHistory();
   };
 

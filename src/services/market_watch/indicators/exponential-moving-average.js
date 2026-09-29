@@ -76,15 +76,15 @@ function ExponentialMovingAverage(period, trendCandleCount) {
     const slope = (this.emaArray[n - 1] - this.emaArray[0]) / n;
 
     // 3. Normalize slope (percentage-based)
-    const avg = this.emaArray.reduce((a, b) => a + b, 0) / n;
-    const normalizedSlope = (slope / avg) * 100;
+    // const avg = this.emaArray.reduce((a, b) => a + b, 0) / n;
+    // const normalizedSlope = (slope / avg) * 100;
 
     // 4. Decision logic
-    if (upRatio >= consistencyRatio) {
+    if (slope > minSlope && upRatio >= consistencyRatio) {
       return STRATEGY.TREND.UPTREND;
     }
 
-    if (downRatio >= consistencyRatio) {
+    if (slope < -minSlope && downRatio >= consistencyRatio) {
       return STRATEGY.TREND.DOWNTREND;
     }
 

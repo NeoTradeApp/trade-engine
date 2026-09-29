@@ -5,10 +5,8 @@ const BaseMarketWatchService = require("./base_market_watch_service");
 
 const { NIFTY_MONTHLY_EXPIRY } = process.env;
 
-function NiftyFuturesWatchService(expiry, intervalInMinutes, bufferSize, options) {
-  BaseMarketWatchService.call(this, SCRIPS.SCRIP_TYPE.NIFTY_FUTURE, intervalInMinutes, bufferSize, options);
-
-  this.expiry = expiry;
+function NiftyIndexWatchService(intervalInMinutes, bufferSize, options) {
+  BaseMarketWatchService.call(this, SCRIPS.SCRIP_TYPE.NIFTY_INDEX, intervalInMinutes, bufferSize, options);
 
   const emaIndicator = new ExponentialMovingAverage(this.bufferSize, this.bufferSize);
   this.onHistoryLoad = () => {
@@ -30,9 +28,6 @@ function NiftyFuturesWatchService(expiry, intervalInMinutes, bufferSize, options
   this.start();
 }
 
-const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday");
-const niftyFuturesWatchService = new NiftyFuturesWatchService(niftyMonthlyExpiry, 1, 10, {
-  storeCandlesData: true,
-});
+const niftyIndexWatchService = new NiftyIndexWatchService(1, 10);
 
-module.exports = { NiftyFuturesWatchService, niftyFuturesWatchService };
+module.exports = { NiftyIndexWatchService, niftyIndexWatchService };

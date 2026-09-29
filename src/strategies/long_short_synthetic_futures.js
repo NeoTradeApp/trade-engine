@@ -20,11 +20,13 @@ function LongShortSyntheticFutures(strategyId, userId) {
   const TRAIL_STOPLOSS_AT = 30;
   const TRADE_INTERVAL_IN_MINUTES = 11;
   const EMA_DISTANCE_THRESHOLD = 30;
+  const BROKERAGE = 10;
+  const TAXES = 15;
 
   const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 
   let entryTime = todayTimeIst({ hour: 9, minute: 45 });
-  let exitTime = todayTimeIst({ hour: 15, minute: 25 });
+  let exitTime = todayTimeIst({ hour: 15, minute: 14 });
 
   const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
   const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
@@ -194,8 +196,8 @@ function LongShortSyntheticFutures(strategyId, userId) {
     scrip: niftyOption.scrip,
     tnxType: direction,
     price: niftyOption.get("close"),
-    brokerage: 10,
-    taxes: 6,
+    brokerage: BROKERAGE,
+    taxes: TAXES,
 
     quantity,
     filledQuantity: quantity,

@@ -1,0 +1,137 @@
+//@version=5
+indicator("Trend Pullback State Machine", overlay=true)
+
+// ======================
+// Inputs
+// ======================
+
+fastLen = input.int(20, "Fast EMA")
+slowLen = input.int(50, "Slow EMA")
+atrLen = input.int(14, "ATR Length")
+rsiLen = input.int(14, "RSI Length")
+
+// ======================
+// Indicators
+// ======================
+
+emaFast = ta.ema(close, fastLen)
+emaSlow = ta.ema(close, slowLen)
+
+atr = ta.atr(atrLen)
+rsi = ta.rsi(close, rsiLen)
+
+// ======================
+// Trend Detection
+// ======================
+
+emaSlope = emaFast - emaFast[5]
+
+upTrend = emaFast > emaSlow and emaSlope > 0
+
+downTrend = emaFast < emaSlow and emaSlope < 0
+
+// ======================
+// Pullback Detection
+// ======================
+
+distanceFromEMA = (close - emaFast) / atr
+
+uptrendPullback = upTrend and distanceFromEMA < -0.5 and rsi > 40
+
+downtrendPullback = downTrend and distanceFromEMA > 0.5 and rsi < 60
+
+// ======================
+// Resume Detection
+// ======================
+
+uptrendResume = uptrendPullback[1] and close > emaFast
+
+downtrendResume = downtrendPullback[1] and close < emaFast
+
+// ======================
+// Sideways Detection
+// ======================
+
+sideways = math.abs(emaSlope) < atr * 0.05
+
+// ======================
+// State Assignment
+// ======================
+
+var string state = "SIDEWAYS"
+
+if uptrendResume
+    state := "UPTREND RESUME"
+
+else if downtrendResume
+    state := "DOWNTREND RESUME"
+
+else if uptrendPullback
+    state := "UPTREND PULLBACK"
+
+else if downtrendPullback
+    state := "DOWNTREND PULLBACK"
+
+else if upTrend
+    state := "UPTREND"
+
+else if downTrend
+    state := "DOWNTREND"
+
+else
+    state := "SIDEWAYS"
+
+// ======================
+// Background Colors
+// ======================
+
+bgcolor(
+     state == "UPTREND" ? color.new(color.green, 90) :
+     state == "UPTREND PULLBACK" ? color.new(color.yellow, 85) :
+     state == "UPTREND RESUME" ? color.new(color.aqua, 85) :
+     state == "DOWNTREND" ? color.new(color.red, 90) :
+     state == "DOWNTREND PULLBACK" ? color.new(color.orange, 85) :
+     state == "DOWNTREND RESUME" ? color.new(color.purple, 85) :
+     color.new(color.gray, 92))
+
+// ======================
+// EMA Plots
+// ======================
+
+plot(emaFast, color=color.lime, linewidth=2)
+plot(emaSlow, color=color.red, linewidth=2)
+
+// ======================
+// Labels
+// ======================
+
+plotshape(
+     uptrendResume,
+     title="Buy Resume",
+     style=shape.triangleup,
+     location=location.belowbar,
+     color=color.green,
+     size=size.small)
+
+plotshape(
+     downtrendResume,
+     title="Sell Resume",
+     style=shape.triangledown,
+     location=location.abovebar,
+     color=color.red,
+     size=size.small)
+
+// ======================
+// State Table
+// ======================
+
+var table t = table.new(position.top_right, 1, 1)
+
+if barstate.islast
+    table.cell(
+         t,
+         0,
+         0,
+         state,
+         bgcolor=color.black,
+         text_color=color.white)

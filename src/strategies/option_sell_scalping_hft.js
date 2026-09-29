@@ -6,10 +6,10 @@ const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
-function OptionSellScalping(strategyId, userId) {
+function OptionSellScalpingHft(strategyId, userId) {
   BaseStrategy.call(this, strategyId, userId);
 
-  this.strategyName = STRATEGY.OPTION_SELL_SCALPING;
+  this.strategyName = STRATEGY.OPTION_SELL_SCALPING_HFT;
 
   const LONG_POSITION = "LONG";
   const SHORT_POSITION = "SHORT";
@@ -18,9 +18,7 @@ function OptionSellScalping(strategyId, userId) {
   const TARGET = 15;
   const STOPLOSS = -15;
   const EMA_DISTANCE_THRESHOLD = 5;
-  const TRADE_INTERVAL_IN_MINUTES = 10;
-  const TRAILING_STOPLOSS = 100;
-  const TRAIL_STOPLOSS_AT = 100;
+  const TRADE_INTERVAL_IN_MINUTES = 1;
   const BROKERAGE = 10;
   const TAXES = 40;
 
@@ -52,7 +50,7 @@ function OptionSellScalping(strategyId, userId) {
     }
   });
 
-  const selectITMOption = (strikePrice, direction) => {
+  const selectOTMOption = (strikePrice, direction) => {
     if (!strikePrice) return;
 
     if (!niftyOption) {
@@ -79,7 +77,12 @@ function OptionSellScalping(strategyId, userId) {
     const atmStrikePrice = Math.round(price / 100) * 100;
 
     let direction;
-    if (trend === STRATEGY.TREND.UPTREND) {
+    // Reverse the position direction based on previous trade else follow the trend.
+    if (this.previousTradeDirection === LONG_POSITION) {
+      direction = SHORT_POSITION;
+    } else if (this.previousTradeDirection === SHORT_POSITION) {
+      direction = LONG_POSITION;
+    } else if (trend === STRATEGY.TREND.UPTREND) {
       direction = LONG_POSITION;
     } else if (trend === STRATEGY.TREND.DOWNTREND) {
       direction = SHORT_POSITION;
@@ -87,7 +90,7 @@ function OptionSellScalping(strategyId, userId) {
 
     if (!direction) return;
 
-    selectITMOption(atmStrikePrice, direction);
+    selectOTMOption(atmStrikePrice, direction);
     if (!niftyOption.get("close")) return;
 
     this.enterPosition({
@@ -102,9 +105,10 @@ function OptionSellScalping(strategyId, userId) {
   };
 
   this.checkExit = () => {
-    const { pnl, target, stoploss, trailStoplossAt, trailingStoploss } = this.position;
+    const { pnl, target, stoploss } = this.position;
 
     if (pnl <= stoploss || pnl >= target || isCurrentTimeAfter(exitTime)) {
+      this.previousTradeDirection = this.position.direction;
       this.exitPosition({
         ...this.position,
         exitPrice: niftyIndex.get("close"),
@@ -116,15 +120,6 @@ function OptionSellScalping(strategyId, userId) {
       entryTime = todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes");
 
       return;
-    }
-
-    if (pnl >= trailStoplossAt) {
-      Object.assign(this.position, {
-        stoploss: trailStoplossAt - trailingStoploss,
-        trailStoplossAt: trailStoplossAt + pointsToAmount(TRAIL_STOPLOSS_AT),
-      });
-
-      this.savePositionToRedis();
     }
   };
 
@@ -143,8 +138,6 @@ function OptionSellScalping(strategyId, userId) {
 
       target: pointsToAmount(TARGET),
       stoploss: pointsToAmount(STOPLOSS),
-      trailingStoploss: pointsToAmount(TRAILING_STOPLOSS),
-      trailStoplossAt: pointsToAmount(TRAIL_STOPLOSS_AT),
     };
   };
 
@@ -178,4 +171,4 @@ function OptionSellScalping(strategyId, userId) {
   };
 }
 
-module.exports = OptionSellScalping;
+module.exports = OptionSellScalpingHft;

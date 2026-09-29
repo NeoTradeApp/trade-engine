@@ -13,7 +13,13 @@ function HSWebSocketService() {
   this.userWS = new HSWebSocket(url);
   this.channelNumber = 1;
 
-  this.send = (obj) => this.isOpen() && this.userWS.send(JSON.stringify(obj));
+  this.send = (obj) => {
+    try {
+      this.isOpen() && this.userWS.send(JSON.stringify(obj));
+    } catch (error) {
+      logger.error("HSWebSocketService, Error in sending data to socket:", error);
+    }
+  };
 
   this.connect = async () => {
     try {
@@ -49,7 +55,7 @@ function HSWebSocketService() {
       };
 
       this.userWS.onerror = (error) => {
-        logger.error("HSWeb Error:", error);
+        logger.error("HSWebSocketService, onError:", error);
       };
 
       this.userWS.onmessage = (rawDataStr) => {
@@ -66,7 +72,7 @@ function HSWebSocketService() {
 
       return this.userWS;
     } catch (error) {
-      logger.error("HSWebSocketService: ", error.message);
+      logger.error("HSWebSocketService, Error in connecting:", error.message);
     }
   };
 
@@ -117,14 +123,18 @@ function HSWebSocketService() {
   appEvents.on(EVENT.HS_WEB_SOCKET.CREDENTIALS_UPDATED, this.tryReconnect);
 
   this.healthCheckTimer = setInterval(() => {
-    if (this.healthCheckStatus === false) {
-      this.close();
-      this.tryReconnect();
-      return;
-    }
+    try {
+      if (this.healthCheckStatus === false) {
+        this.close();
+        this.tryReconnect();
+        return;
+      }
 
-    this.healthCheckStatus = false;
-    this.ping();
+      this.healthCheckStatus = false;
+      this.ping();
+    } catch (error) {
+      logger.error("HSWebSocketService, Error in healthcheck:", error);
+    }
   }, HEALTHCHECK_INTERVAL);
 }
 

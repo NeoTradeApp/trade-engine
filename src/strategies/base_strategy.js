@@ -4,6 +4,7 @@ const { redisService } = require("@services");
 const { appEvents } = require("@events")
 const { REDIS, EVENT, STRATEGY } = require("@constants")
 const { generateRandomId, isMarketOpen, isEmpty, selectKeys, todayTimeIst } = require("@utils");
+const { DEFAULT_SERVER_ID } = process.env;
 
 const { INITIATED, STARTED, ENTERED, PAUSED, STOPPED, EXITED } = STRATEGY.STATUS;
 const MARKET_TICK_INTERVAL_MS = 600;
@@ -14,7 +15,7 @@ function BaseStrategy(strategyId, userId) {
 
   (async () => {
     const userDetails = await redisService.get(REDIS.KEY.USER_INFO(this.userId));
-    this.serverId = userDetails?.serverId;
+    this.serverId = userDetails?.serverId || DEFAULT_SERVER_ID;
   })();
 
   this.position = {};
@@ -136,6 +137,11 @@ function BaseStrategy(strategyId, userId) {
       await updatePosition(position.id, closedPosition, transaction);
       const exitOrdersInDb = await createOrders(position?.id, exitOrders, transaction);
       transaction.commit();
+
+      exitOrders.forEach((order, index) => {
+        order.id = exitOrdersInDb[index]?.id
+      });
+      this.position.orders.push(...exitOrders);
 
       Object.assign(this.position, closedPosition);
       await this.publishPositionToRedis();

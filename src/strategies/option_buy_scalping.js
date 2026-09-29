@@ -1,6 +1,6 @@
 const { appEvents } = require("@events")
 const { REDIS, SERVICE_PROVIDERS, STRATEGY } = require("@constants")
-const { redisService, niftyFuturesWatchService: niftyFutures, NiftyOptionsWatchService } = require("@services");
+const { redisService, niftyIndexWatchService: niftyIndex, NiftyOptionsWatchService } = require("@services");
 const { todayTimeIst, getDateOfNext } = require("@utils");
 const BaseStrategy = require("./base_strategy");
 
@@ -9,7 +9,7 @@ const { NIFTY_WEEKLY_EXPIRY } = process.env;
 function OptionBuyScalping(strategyId, userId) {
   BaseStrategy.call(this, strategyId, userId);
 
-  this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES;
+  this.strategyName = STRATEGY.OPTION_BUY_SCALPING;
 
   const LONG_POSITION = "LONG";
   const SHORT_POSITION = "SHORT";
@@ -21,11 +21,13 @@ function OptionBuyScalping(strategyId, userId) {
   const TRADE_INTERVAL_IN_MINUTES = 10;
   const TRAILING_STOPLOSS = 15;
   const TRAIL_STOPLOSS_AT = 15;
+  const BROKERAGE = 10;
+  const TAXES = 15;
 
   const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 
   let entryTime = todayTimeIst({ hour: 9, minute: 30 });
-  let exitTime = todayTimeIst({ hour: 15, minute: 25 });
+  let exitTime = todayTimeIst({ hour: 15, minute: 14 });
 
   const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
   const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
@@ -66,10 +68,10 @@ function OptionBuyScalping(strategyId, userId) {
   this.checkEntry = () => {
     if (isCurrentTimeBefore(entryTime) || isCurrentTimeAfter(exitTime)) return;
 
-    const price = niftyFutures.get("close");
+    const price = niftyIndex.get("close");
     if (!price) return;
 
-    const { ema, trend } = niftyFutures.get("indicators") || {};
+    const { ema, trend } = niftyIndex.get("indicators") || {};
     const distance = Math.abs(price - ema);
 
     if (distance > EMA_DISTANCE_THRESHOLD) return;
@@ -105,7 +107,7 @@ function OptionBuyScalping(strategyId, userId) {
     if (pnl <= stoploss || pnl >= target || isCurrentTimeAfter(exitTime)) {
       this.exitPosition({
         ...this.position,
-        exitPrice: niftyFutures.get("close"),
+        exitPrice: niftyIndex.get("close"),
       });
 
       niftyOption.destroy();
@@ -137,7 +139,7 @@ function OptionBuyScalping(strategyId, userId) {
     return {
       optionPrice,
       strikePrice: niftyOption?.strikePrice,
-      entryPrice: niftyFutures.get("close"),
+      entryPrice: niftyIndex.get("close"),
 
       target: pointsToAmount(TARGET),
       stoploss: pointsToAmount(STOPLOSS),
@@ -158,8 +160,8 @@ function OptionBuyScalping(strategyId, userId) {
     scrip: niftyOption.scrip,
     tnxType,
     price: niftyOption.get("close"),
-    brokerage: 10,
-    taxes: 6,
+    brokerage: BROKERAGE,
+    taxes: TAXES,
 
     quantity,
     filledQuantity: quantity,
@@ -171,7 +173,7 @@ function OptionBuyScalping(strategyId, userId) {
   const baseStop = this.stop;
   this.stop = () => {
     baseStop();
-    // niftyFutures.destroy();
+    // niftyIndex.destroy();
     niftyOption.destroy();
     niftyOption.destroy();
   };

@@ -11,7 +11,7 @@ function LongShortSyntheticFutures15Min(strategyId, userId) {
   const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday");
   const niftyFutures = new NiftyFuturesWatchService(niftyMonthlyExpiry, 15, 10);
 
-  this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES;
+  this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES_15_MIN;
 
   const LONG_POSITION = "LONG";
   const SHORT_POSITION = "SHORT";
@@ -23,11 +23,13 @@ function LongShortSyntheticFutures15Min(strategyId, userId) {
   const TRAIL_STOPLOSS_AT = 30;
   const TRADE_INTERVAL_IN_MINUTES = 15;
   const EMA_DISTANCE_THRESHOLD = 30;
+  const BROKERAGE = 10;
+  const TAXES = 15;
 
   const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 
   let entryTime = todayTimeIst({ hour: 9, minute: 45 });
-  let exitTime = todayTimeIst({ hour: 15, minute: 25 });
+  let exitTime = todayTimeIst({ hour: 15, minute: 14 });
 
   const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
   const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
@@ -192,8 +194,8 @@ function LongShortSyntheticFutures15Min(strategyId, userId) {
     scrip: niftyOption.scrip,
     tnxType: direction,
     price: niftyOption.get("close"),
-    brokerage: 10,
-    taxes: 6,
+    brokerage: BROKERAGE,
+    taxes: TAXES,
 
     quantity,
     filledQuantity: quantity,

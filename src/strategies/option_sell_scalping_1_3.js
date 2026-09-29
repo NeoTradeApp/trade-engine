@@ -6,19 +6,20 @@ const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
-function OptionSellScalping(strategyId, userId) {
+function OptionSellScalping_1_3(strategyId, userId) {
   BaseStrategy.call(this, strategyId, userId);
 
-  this.strategyName = STRATEGY.OPTION_SELL_SCALPING;
+  this.strategyName = STRATEGY.OPTION_SELL_SCALPING_1_3;
 
   const LONG_POSITION = "LONG";
   const SHORT_POSITION = "SHORT";
   const LOT_SIZE = 65;
   const noOfLots = 2;
-  const TARGET = 15;
-  const STOPLOSS = -15;
+  const TARGET = 8;
+  const STOPLOSS = -21;
   const EMA_DISTANCE_THRESHOLD = 5;
-  const TRADE_INTERVAL_IN_MINUTES = 10;
+  const PAUSE_AFTER_WIN_IN_MINUTES = 5;
+  const PAUSE_AFTER_LOSS_IN_MINUTES = 10;
   const TRAILING_STOPLOSS = 100;
   const TRAIL_STOPLOSS_AT = 100;
   const BROKERAGE = 10;
@@ -113,7 +114,10 @@ function OptionSellScalping(strategyId, userId) {
       niftyOption.destroy();
       niftyOption = null;
 
-      entryTime = todayTimeIst().add(TRADE_INTERVAL_IN_MINUTES, "minutes");
+      entryTime = todayTimeIst().add(
+        pnl >= 0 ? PAUSE_AFTER_WIN_IN_MINUTES : PAUSE_AFTER_LOSS_IN_MINUTES,
+        "minutes"
+      );
 
       return;
     }
@@ -178,4 +182,4 @@ function OptionSellScalping(strategyId, userId) {
   };
 }
 
-module.exports = OptionSellScalping;
+module.exports = OptionSellScalping_1_3;

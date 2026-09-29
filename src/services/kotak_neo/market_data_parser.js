@@ -80,14 +80,14 @@ function MarketDataParser() {
       const key = `${rawData.e}|${rawData.tk}`;
 
       switch (true) {
-        case Object.keys(this.niftyOptionChainScrips).includes(key):
+        case this.niftyOptionChainScrips && Object.keys(this.niftyOptionChainScrips).includes(key):
           parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTION_CHAIN] = parseNiftyOptionChain(
             rawData,
             parsedData[SCRIPS.SCRIP_TYPE.NIFTY_OPTION_CHAIN],
           );
           break;
 
-        case Object.keys(this.niftyFutScrip).includes(key):
+        case this.niftyFutScrip && Object.keys(this.niftyFutScrip).includes(key):
           parsedData[SCRIPS.SCRIP_TYPE.NIFTY_FUTURE] = parseNiftyFut(rawData);
           break;
 

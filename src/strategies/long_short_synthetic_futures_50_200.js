@@ -9,7 +9,7 @@ const { NIFTY_WEEKLY_EXPIRY } = process.env;
 function LongShortSyntheticFutures50200(strategyId, userId) {
   BaseStrategy.call(this, strategyId, userId);
 
-  this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES;
+  this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES_50_200;
 
   const LONG_POSITION = "LONG";
   const SHORT_POSITION = "SHORT";
@@ -20,11 +20,13 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
   const TRAILING_STOPLOSS = 75;
   const TRAIL_STOPLOSS_AT = 25;
   const TRADE_INTERVAL_IN_MINUTES = 11;
+  const BROKERAGE = 10;
+  const TAXES = 15;
 
   const pointsToAmount = (point) => point * noOfLots * LOT_SIZE;
 
   let entryTime = todayTimeIst({ hour: 9, minute: 45 });
-  let exitTime = todayTimeIst({ hour: 15, minute: 25 });
+  let exitTime = todayTimeIst({ hour: 15, minute: 14 });
 
   const isCurrentTimeBefore = (time) => todayTimeIst().isBefore(time);
   const isCurrentTimeAfter = (time) => todayTimeIst().isAfter(time);
@@ -191,8 +193,8 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
     scrip: niftyOption.scrip,
     tnxType: direction,
     price: niftyOption.get("close"),
-    brokerage: 10,
-    taxes: 6,
+    brokerage: BROKERAGE,
+    taxes: TAXES,
 
     quantity,
     filledQuantity: quantity,

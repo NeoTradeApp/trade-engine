@@ -28,6 +28,31 @@ module.exports = {
       user_id: "02869ff3-53cc-4ab5-bd17-ee9939b0fa36",
       strategy_id: Sequelize.literal("gen_random_uuid()"),
       strategy_name: "LONG_SHORT_SYNTHETIC_FUTURES_15_MIN"
+    }, {
+      id: Sequelize.literal("gen_random_uuid()"),
+      user_id: "02869ff3-53cc-4ab5-bd17-ee9939b0fa36",
+      strategy_id: Sequelize.literal("gen_random_uuid()"),
+      strategy_name: "LONG_SHORT_SYNTHETIC_FUTURES_7_21"
+    }, {
+      id: Sequelize.literal("gen_random_uuid()"),
+      user_id: "02869ff3-53cc-4ab5-bd17-ee9939b0fa36",
+      strategy_id: Sequelize.literal("gen_random_uuid()"),
+      strategy_name: "OPTION_SELL_SCALPING"
+    }, {
+      id: Sequelize.literal("gen_random_uuid()"),
+      user_id: "02869ff3-53cc-4ab5-bd17-ee9939b0fa36",
+      strategy_id: Sequelize.literal("gen_random_uuid()"),
+      strategy_name: "OPTION_SELL_SCALPING_1_3"
+    }, {
+      id: Sequelize.literal("gen_random_uuid()"),
+      user_id: "02869ff3-53cc-4ab5-bd17-ee9939b0fa36",
+      strategy_id: Sequelize.literal("gen_random_uuid()"),
+      strategy_name: "OPTION_SELL_STRADDLE"
+    }, {
+      id: Sequelize.literal("gen_random_uuid()"),
+      user_id: "02869ff3-53cc-4ab5-bd17-ee9939b0fa36",
+      strategy_id: Sequelize.literal("gen_random_uuid()"),
+      strategy_name: "OPTION_SELL_SCALPING_HFT"
     }], {});
   },
 

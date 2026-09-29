@@ -106,7 +106,7 @@ function KotakNeoService() {
   };
 
   this.loadNiftyOptionChainScrips = async () => {
-    const niftyFutureScrip = await this.loadNiftyFuturesScrip();
+    const niftyFutureScrip = await this.loadNiftyFuturesScrip() || {};
     const [niftyFuturesQuote] = await this.getQuotes(Object.keys(niftyFutureScrip));
     const lastTradedNifyValue = parseFloat(niftyFuturesQuote?.ltp) || NIFTY_LAST_TRADED_VALUE;
 

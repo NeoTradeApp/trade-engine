@@ -7,6 +7,12 @@ const LongShortSyntheticFutures50200 = require("./long_short_synthetic_futures_5
 const OptionSellScalping = require("./option_sell_scalping");
 const OptionBuyScalping1515 = require("./option_buy_scalping_15_15");
 const LongShortSyntheticFutures15Min = require("./long_short_synthetic_futures_15_min");
+const OptionBuyScalping0721 = require("./option_buy_scalping_7_21");
+const OptionSellScalping_1_3 = require("./option_sell_scalping_1_3");
+const OptionBuyScalping_1_3_Daily_Limit = require("./option_buy_scalping_1_3_daily_limit");
+const OptionSellStraddle = require("./option_sell_straddle");
+const OptionSellScalpingHft = require("./option_sell_scalping_hft");
+
 
 function UserStrategies(userId) {
   this.userId = userId;
@@ -19,6 +25,11 @@ function UserStrategies(userId) {
     [STRATEGY.OPTION_SELL_SCALPING]: OptionSellScalping,
     [STRATEGY.OPTION_BUY_SCALPING_15_15]: OptionBuyScalping1515,
     [STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES_15_MIN]: LongShortSyntheticFutures15Min,
+    [STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES_7_21]: OptionBuyScalping0721,
+    [STRATEGY.OPTION_SELL_SCALPING_1_3]: OptionSellScalping_1_3,
+    [STRATEGY.OPTION_BUY_SCALPING_1_3_DAILY_LIMIT]: OptionBuyScalping_1_3_Daily_Limit,
+    [STRATEGY.OPTION_SELL_STRADDLE]: OptionSellStraddle,
+    [STRATEGY.OPTION_SELL_SCALPING_HFT]: OptionSellScalpingHft,
   };
 
   this.deployAll = async () => {
