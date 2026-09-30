@@ -102,9 +102,10 @@ function OptionBuyScalping1515(strategyId, userId) {
   };
 
   this.checkExit = () => {
+    const { exitTime } = this.properties;
     const { pnl, target, stoploss, trailStoplossAt, trailingStoploss } = this.position;
 
-    if (pnl <= stoploss || pnl >= target || isCurrentTimeAfter(exitTime)) {
+    if (pnl <= stoploss || pnl >= target || todayTimeIst().isAfter(exitTime)) {
       this.exitPosition({
         ...this.position,
         exitPrice: niftyIndex.get("close"),

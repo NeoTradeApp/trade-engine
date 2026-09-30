@@ -120,7 +120,7 @@ function LongShortSyntheticFutures50200(strategyId, userId) {
         trailStoplossAt: trailStoplossAt + pointsToAmount(TRAIL_STOPLOSS_AT),
       });
 
-      this.updateProperties({ properties: this.properties });
+      this.updateProperties({ position: this.position  });
     }
   };
 

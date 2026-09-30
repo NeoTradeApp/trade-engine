@@ -1,4 +1,4 @@
-const { isMarketOpen, getMonthEndDateOf } = require("@utils");
+const { getMonthEndDateOf } = require("@utils");
 const { SCRIPS } = require("@constants");
 const { ExponentialMovingAverage } = require("./indicators");
 const BaseMarketWatchService = require("./base_market_watch_service");

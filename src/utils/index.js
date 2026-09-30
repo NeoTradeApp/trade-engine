@@ -3,6 +3,7 @@ const objectHelpers = require("./object_helpers");
 const datetimeHelpers = require("./datetime_helpers");
 const csvHelpers = require("./csv_helpers");
 const timerHelpers = require("./timer_helpers");
+const chargesHelper = require("./charges_helper");
 
 module.exports = {
   ...textFormattingHelpers,
@@ -10,4 +11,5 @@ module.exports = {
   ...datetimeHelpers,
   ...csvHelpers,
   ...timerHelpers,
+  ...chargesHelper,
 };

@@ -1,9 +1,10 @@
+const moment = require("moment");
 const { logger } = require("winston");
 const { sequelize, Position, Order } = require("@models");
 const { redisService } = require("@services");
 const { appEvents } = require("@events")
 const { REDIS, EVENT, STRATEGY } = require("@constants")
-const { generateRandomId, isMarketOpen, isEmpty, selectKeys, todayTimeIst } = require("@utils");
+const { generateRandomId, isMarketOpen, isEmpty, selectKeys, todayTimeIst, calculateCharges, calculateBrokerage } = require("@utils");
 const { DEFAULT_SERVER_ID } = process.env;
 
 const { INITIATED, STARTED, ENTERED, PAUSED, STOPPED, EXITED } = STRATEGY.STATUS;
@@ -27,7 +28,7 @@ function BaseStrategy(strategyId, userId) {
   const parseProperties = {
     entryTime: (time) => moment(time),
     exitTime: (time) => moment(time),
-  }
+  };
 
   this.loadPropertiesFromRedis = async () => {
     const userDetails = await redisService.get(REDIS.KEY.USER_INFO(this.userId));
@@ -38,8 +39,8 @@ function BaseStrategy(strategyId, userId) {
     if (propertiesFromRedis) {
       this.properties = propertiesFromRedis;
 
-      Object.entries(this.properties).forEach((key, value) => {
-        this.properties[key] = parseProperties[key](value);
+      Object.entries(parseProperties).forEach(([key, parseFn]) => {
+        this.properties[key] = parseFn(this.properties[key]);
       });
 
       this.onPropertiesLoad(this.properties);
@@ -152,6 +153,8 @@ function BaseStrategy(strategyId, userId) {
         tnxType: reverseSide,
         price: ltp,
         orderId: `exit paper trade`,
+        brokerage: calculateBrokerage(),
+        taxes: calculateCharges(ltp, entryOrder.quantity, reverseSide),
       };
 
       exitOrders.push(exitOrder);
@@ -204,8 +207,8 @@ function BaseStrategy(strategyId, userId) {
     scrip: niftyOption.scrip,
     tnxType,
     price: niftyOption.get("close"),
-    brokerage: BROKERAGE,
-    taxes: TAXES,
+    brokerage: calculateBrokerage(),
+    taxes: calculateCharges(niftyOption.get("close"), quantity, tnxType),
 
     quantity,
     filledQuantity: quantity,
