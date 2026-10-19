@@ -1102,10 +1102,10 @@
     ws.onclose = function () {
       userSocket.onclose();
     };
-    ws.onerror = function () {
+    ws.onerror = function (error) {
       userSocket.OPEN = 0;
       userSocket.readyState = 0;
-      userSocket.onerror();
+      userSocket.onerror(error);
     };
     ws.on("pong", function () {
       userSocket.onpong();

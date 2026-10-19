@@ -5,7 +5,7 @@ const {
   niftyFuturesWatchService: niftyFutures,
   healthcheck,
 } = require("@services");
-const { kotakNeoService, hsWebSocketService, marketDataParser } = KotakNeo;
+const { kotakNeoService, webSocketService, marketDataParser } = KotakNeo;
 const { appEvents } = require("@events");
 const { EVENT, SCRIPS } = require("@constants");
 const { UserStrategies } = require("@strategies");
@@ -25,7 +25,7 @@ function App() {
 
     await this.configScrips();
     this.configWatchers();
-    await hsWebSocketService.connect();
+    await webSocketService.connect();
 
     // TODO: REMOVE
     // this.loadStrategies();
@@ -36,7 +36,7 @@ function App() {
 
   this.stop = async () => {
     await redisService.disconnect();
-    hsWebSocketService.disconnect();
+    webSocketService.disconnect();
 
     removeHsConnectEvent();
     removeHsConnectEvent = null;
@@ -62,11 +62,11 @@ function App() {
     marketDataParser.setScrips({ niftyOptionChainScrips, niftyFutScrip });
 
     removeHsConnectEvent = appEvents.onEvent(EVENT.HS_WEB_SOCKET.CONNECTION_OPEN, async () => {
-      await hsWebSocketService.subscribeIndex(SCRIPS.NIFTY_50);
-      await hsWebSocketService.subscribeScrips(Object.keys({
+      await webSocketService.subscribeIndex(SCRIPS.NIFTY_50);
+      await webSocketService.subscribeScrips(Object.keys({
         ...niftyOptionChainScrips,
         ...niftyFutScrip,
-      }).join("&"));
+      }));
     });
   };
 
