@@ -8,4 +8,8 @@ class AppEvents extends EventEmitter {
   }
 }
 
-module.exports = { appEvents: new AppEvents() };
+const appEvents = new AppEvents();
+
+appEvents.setMaxListeners(100);
+
+module.exports = { appEvents };

@@ -9,7 +9,7 @@ function Logger() {
       filename: `./logs/${APPLICATION_NAME}-error.log`,
       level: "error",
     }),
-    new winston.transports.File({ filename: `./logs/${APPLICATION_NAME}.log` }),
+    // new winston.transports.File({ filename: `./logs/${APPLICATION_NAME}.log` }),
     new winston.transports.Console(),
   ];
 

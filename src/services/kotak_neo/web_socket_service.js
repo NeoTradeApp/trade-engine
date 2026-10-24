@@ -57,7 +57,6 @@ function WebSocketService() {
   this.userWS = null;
   this.authenticated = false;
   this.healthCheckStatus = false;
-  this.shouldReconnect = false;
   this.dividersByExchange = new Map();
   this.symbolsByInstrument = new Map();
   this.subscriptions = new Map();
@@ -78,19 +77,15 @@ function WebSocketService() {
   };
 
   this.connect = async () => {
-    if (this.isOpen() || this.connecting) return this.userWS;
+    if (this.isOpen()) return this.userWS;
 
     try {
       const credentials = await this.getCredentials();
-      this.shouldReconnect = true;
-      this.connecting = true;
       this.authenticated = false;
       this.userWS = new WebSocket(KOTAK_NEO_WEB_SOCKET_BASE_URL);
 
       this.userWS.on("open", () => {
-        this.connecting = false;
         this.healthCheckStatus = true;
-        this.startHealthCheck();
 
         this.send({
           user: credentials.ucc,
@@ -104,14 +99,13 @@ function WebSocketService() {
       });
 
       this.userWS.on("close", () => {
-        this.connecting = false;
         this.authenticated = false;
         this.healthCheckStatus = false;
-        this.stopHealthCheck();
+        // this.stopHealthCheck();
 
         logger.socket("Kotak Neo native WebSocket: disconnected");
         appEvents.emit(EVENT.HS_WEB_SOCKET.CONNECTION_CLOSED);
-        this.scheduleReconnect();
+        this.tryReconnect();
       });
 
       this.userWS.on("error", (error) => {
@@ -128,15 +122,13 @@ function WebSocketService() {
 
       return this.userWS;
     } catch (error) {
-      this.connecting = false;
       logger.error("WebSocketService: unable to connect", error);
-      this.scheduleReconnect();
+      this.tryReconnect();
       return null;
     }
   };
 
   this.disconnect = () => {
-    this.shouldReconnect = false;
     this.stopHealthCheck();
     this.clearReconnectTimer();
     this.close();
@@ -167,10 +159,7 @@ function WebSocketService() {
   this.startHealthCheck = () => {
     this.stopHealthCheck();
     this.healthCheckTimer = setInterval(() => {
-      if (!this.isOpen()) return;
-
       if (!this.healthCheckStatus) {
-        this.userWS.terminate();
         this.tryReconnect();
         return;
       }
@@ -194,25 +183,14 @@ function WebSocketService() {
     this.reconnectTimer = null;
   };
 
-  this.scheduleReconnect = () => {
-    if (!this.shouldReconnect || this.reconnectTimer || !isMarketOpen()) return;
+  this.tryReconnect = () => {
+    if (this.reconnectTimer || !isMarketOpen()) return;
 
+    this.userWS?.terminate();
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
     }, RECONNECT_DELAY);
-  };
-
-  this.tryReconnect = () => {
-    // A Redis credentials update is also how a fresh login starts the first connection.
-    this.shouldReconnect = true;
-
-    if (this.isOpen()) {
-      this.userWS.terminate();
-      return;
-    }
-
-    this.scheduleReconnect();
   };
 
   this.subscribeIndex = (inputtoken) =>
@@ -360,7 +338,6 @@ function WebSocketService() {
     if (messageCode === 1120) {
       // Retrying an invalid session cannot succeed. Wait for Redis to publish refreshed
       // credentials, which invokes tryReconnect and explicitly re-enables reconnects.
-      this.shouldReconnect = true;
       logger.error(`WebSocketService: authentication failed: ${message.message || "unknown error"}`);
       this.close();
       return;
@@ -631,6 +608,7 @@ function WebSocketService() {
   };
 
   appEvents.on(EVENT.HS_WEB_SOCKET.CREDENTIALS_UPDATED, this.tryReconnect);
+  this.startHealthCheck();
 }
 
 module.exports = {
