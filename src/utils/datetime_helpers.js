@@ -1,5 +1,11 @@
 const moment = require("moment");
-const { MARKET_HOLIDAYS } = process.env;
+const {
+  MARKET_HOLIDAYS,
+  NIFTY_WEEKLY_EXPIRY,
+  NIFTY_MONTHLY_EXPIRY,
+  NIFTY_WEEKLY_EXPIRY_DAY,
+  NIFTY_MONTHLY_EXPIRY_DAY,
+} = process.env;
 
 const todayTimeIst = (time) => {
   const now = moment().utcOffset("+05:30");
@@ -84,6 +90,14 @@ const getMonthEndDateOf = (targetDay) => {
   return lastDayOfMonth.format("YYYY-MM-DD");
 };
 
+const isValidDate = (dateString) => dateString && moment(dateString, "YYYY-MM-DD").isValid();
+
+const getNiftyWeeklyExpiry = () =>
+  isValidDate(NIFTY_WEEKLY_EXPIRY) ? NIFTY_WEEKLY_EXPIRY : getDateOfNext(NIFTY_WEEKLY_EXPIRY_DAY || "Tuesday");
+
+const getNiftyMonthlyExpiry = () =>
+  isValidDate(NIFTY_MONTHLY_EXPIRY) ? NIFTY_MONTHLY_EXPIRY : getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY_DAY || "Tuesday");
+
 const setCallbackAtTime = (callback, time) => {
   const now = todayTimeIst();
 
@@ -106,5 +120,7 @@ module.exports = {
   isMarketOpen,
   getDateOfNext,
   getMonthEndDateOf,
+  getNiftyWeeklyExpiry,
+  getNiftyMonthlyExpiry,
   setCallbackAtTime,
 };

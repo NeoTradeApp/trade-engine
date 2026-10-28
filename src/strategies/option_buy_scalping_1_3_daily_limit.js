@@ -1,7 +1,7 @@
 const { appEvents } = require("@events")
 const { REDIS, SERVICE_PROVIDERS, STRATEGY } = require("@constants")
 const { redisService, niftyIndexWatchService: niftyIndex, NiftyOptionsWatchService } = require("@services");
-const { todayTimeIst, getDateOfNext } = require("@utils");
+const { todayTimeIst, getNiftyWeeklyExpiry } = require("@utils");
 const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
@@ -44,7 +44,7 @@ function OptionBuyScalping_1_3_Daily_Limit(strategyId, userId) {
     if (position) {
       if (!niftyOption) {
         const optionType = position.direction === LONG_POSITION ? "CE" : "PE";
-        const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
+        const niftyWeeklyExpiry = getNiftyWeeklyExpiry();
         niftyOption = new NiftyOptionsWatchService(position.strikePrice, optionType, niftyWeeklyExpiry);
       }
 
@@ -60,7 +60,7 @@ function OptionBuyScalping_1_3_Daily_Limit(strategyId, userId) {
     if (!strikePrice) return;
 
     if (!niftyOption) {
-      const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
+      const niftyWeeklyExpiry = getNiftyWeeklyExpiry();
       if (direction === LONG_POSITION) {
         niftyOption = new NiftyOptionsWatchService(strikePrice - 200, "CE", niftyWeeklyExpiry);
       } else {

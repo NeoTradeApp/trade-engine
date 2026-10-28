@@ -1,9 +1,6 @@
-const { getMonthEndDateOf } = require("@utils");
 const { SCRIPS } = require("@constants");
 const { ExponentialMovingAverage } = require("./indicators");
 const BaseMarketWatchService = require("./base_market_watch_service");
-
-const { NIFTY_MONTHLY_EXPIRY } = process.env;
 
 function NiftyIndexWatchService(intervalInMinutes, bufferSize, options) {
   BaseMarketWatchService.call(this, SCRIPS.SCRIP_TYPE.NIFTY_INDEX, intervalInMinutes, bufferSize, options);

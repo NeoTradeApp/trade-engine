@@ -4,14 +4,13 @@ const BaseService = require("../base_service");
 const { appEvents } = require("@events");
 const { REDIS, EVENT, SCRIPS } = require("@constants");
 const { redisService } = require("../redis");
-const { getErrorMessage, downloadAndParseCsv, getDateOfNext, getMonthEndDateOf } = require("@utils");
+const { getErrorMessage, downloadAndParseCsv, getNiftyWeeklyExpiry, getNiftyMonthlyExpiry } = require("@utils");
 
 const { KOTAK_NEO_MARKET_DATA_BASE_URL, KOTAK_NEO_ACCESS_TOKEN, NIFTY_LAST_TRADED_VALUE } = process.env;
 const KOTAK_NEO_EXPIRY_ADDITION = 315511200;
 
 const OPTION_CHAIN_DEPTH = 10;
 const NIFTY_STRIKE_PRICE_INTERVAL = 50;
-const { NIFTY_WEEKLY_EXPIRY, NIFTY_MONTHLY_EXPIRY } = process.env;
 
 function KotakNeoService() {
   BaseService.call(this);
@@ -110,7 +109,7 @@ function KotakNeoService() {
     const [niftyFuturesQuote] = await this.getQuotes(Object.keys(niftyFutureScrip));
     const lastTradedNifyValue = parseFloat(niftyFuturesQuote?.ltp) || NIFTY_LAST_TRADED_VALUE;
 
-    const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
+    const niftyWeeklyExpiry = getNiftyWeeklyExpiry();
 
     const niftyATMStrikePrice = parseInt(lastTradedNifyValue / 50) * 50;
     const strikePrices = Array.from(
@@ -127,7 +126,7 @@ function KotakNeoService() {
   };
 
   this.loadNiftyFuturesScrip = async () => {
-    const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday");
+    const niftyMonthlyExpiry = getNiftyMonthlyExpiry();
 
     return await findInstruments(
       `^(NIFTY)(${moment(niftyMonthlyExpiry).format("YYMMM").toUpperCase()})(FUT)$`,

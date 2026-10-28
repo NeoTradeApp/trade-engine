@@ -9,7 +9,7 @@ const {
 } = require("@services");
 const {
   todayTimeIst,
-  getDateOfNext,
+  getNiftyWeeklyExpiry,
   isMarketOpen,
   calculateCharges,
   calculateBrokerage,
@@ -44,9 +44,6 @@ function OptionSellStrangle(strategyId, userId) {
   const initializationPromise = new Promise((resolve) => {
     resolveInitialization = resolve;
   });
-
-  const getExpiry = () =>
-    getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
 
   const getStrikePrice = (type, indexPrice) => {
     const atm = Math.round(indexPrice / 100) * 100;
@@ -101,7 +98,7 @@ function OptionSellStrangle(strategyId, userId) {
     watchers[type] = new NiftyOptionsWatchService(
       strikePrice,
       type,
-      getExpiry()
+      getNiftyWeeklyExpiry()
     );
 
     return watchers[type];
@@ -143,7 +140,7 @@ function OptionSellStrangle(strategyId, userId) {
 
   this.initializeProperties = () => {
     this.properties = {
-      entryTime: todayTimeIst({ hour: 9, minute: 20 }),
+      entryTime: todayTimeIst({ hour: 9, minute: 45 }),
       exitTime: todayTimeIst({ hour: 15, minute: 14 }),
       strangle: {
         legs: { CE: null, PE: null },

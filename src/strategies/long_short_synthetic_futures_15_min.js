@@ -1,14 +1,12 @@
 const { REDIS, SERVICE_PROVIDERS, STRATEGY } = require("@constants")
 const { redisService, NiftyFuturesWatchService, NiftyOptionsWatchService } = require("@services");
-const { todayTimeIst, getDateOfNext, getMonthEndDateOf } = require("@utils");
+const { todayTimeIst, getNiftyWeeklyExpiry, getNiftyMonthlyExpiry } = require("@utils");
 const BaseStrategy = require("./base_strategy");
-
-const { NIFTY_WEEKLY_EXPIRY, NIFTY_MONTHLY_EXPIRY } = process.env;
 
 function LongShortSyntheticFutures15Min(strategyId, userId) {
   BaseStrategy.call(this, strategyId, userId);
 
-  const niftyMonthlyExpiry = getMonthEndDateOf(NIFTY_MONTHLY_EXPIRY || "Tuesday");
+  const niftyMonthlyExpiry = getNiftyMonthlyExpiry();
   const niftyFutures = new NiftyFuturesWatchService(niftyMonthlyExpiry, 15, 10);
 
   this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES_15_MIN;
@@ -59,7 +57,7 @@ function LongShortSyntheticFutures15Min(strategyId, userId) {
   const selectATMOptions = (strikePrice) => {
     if (!strikePrice) return;
 
-    const niftyWeeklyExpiry = getDateOfNext(NIFTY_WEEKLY_EXPIRY || "Tuesday");
+    const niftyWeeklyExpiry = getNiftyWeeklyExpiry();
     if (!niftyOptionCE) {
       niftyOptionCE = new NiftyOptionsWatchService(strikePrice, "CE", niftyWeeklyExpiry);
     }
