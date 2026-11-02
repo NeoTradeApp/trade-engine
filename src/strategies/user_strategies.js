@@ -14,6 +14,7 @@ const OptionSellStraddle = require("./option_sell_straddle");
 const OptionSellScalpingHft = require("./option_sell_scalping_hft");
 const OptionSellStrangle = require("./option_sell_strangle");
 const OptionSellScalpingHftTrend = require("./option_sell_scalping_hft_trend");
+const OptionSellScalping_1_2 = require("./option_sell_scalping_1_2");
 
 function UserStrategies(userId) {
   this.userId = userId;
@@ -33,6 +34,7 @@ function UserStrategies(userId) {
     [STRATEGY.OPTION_SELL_SCALPING_HFT]: OptionSellScalpingHft,
     [STRATEGY.OPTION_SELL_STRANGLE]: OptionSellStrangle,
     [STRATEGY.OPTION_SELL_SCALPING_HFT_TREND]: OptionSellScalpingHftTrend,
+    [STRATEGY.OPTION_SELL_SCALPING_1_2]: OptionSellScalping_1_2,
   };
 
   this.deployAll = async () => {
