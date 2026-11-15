@@ -62,7 +62,16 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize, options) {
   };
 
   const updateCurrentCandle = (marketData) => {
-    const { currentPrice: priceInStr, volume, expiry, openInterest } = marketData || {};
+    const {
+      currentPrice: priceInStr,
+      volume,
+      expiry,
+      openInterest,
+      tradingSymbol,
+      exchangeSegment,
+      instrumentToken,
+      exchange,
+    } = marketData || {};
     if (!priceInStr) return;
 
     const currentPrice = parseFloat(priceInStr);
@@ -86,6 +95,10 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize, options) {
         volume: parseInt(volume) || 0,
         openInterest,
         expiry,
+        tradingSymbol,
+        exchangeSegment,
+        instrumentToken,
+        exchange,
       };
     } else {
       Object.assign(this.currentCandle, {
@@ -94,6 +107,10 @@ function BaseMarketWatchService(scrip, intervalInMinutes, bufferSize, options) {
         close: currentPrice,
         volume: this.currentCandle.volume + (parseInt(volume) || 0),
         expiry,
+        tradingSymbol,
+        exchangeSegment,
+        instrumentToken,
+        exchange,
       });
     }
 

@@ -18,8 +18,8 @@ const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
-function OptionSellStrangle(strategyId, userId) {
-  BaseStrategy.call(this, strategyId, userId);
+function OptionSellStrangle(strategyId, userId, options) {
+  BaseStrategy.call(this, strategyId, userId, options);
 
   this.strategyName = STRATEGY.OPTION_SELL_STRANGLE;
 
@@ -53,6 +53,23 @@ function OptionSellStrangle(strategyId, userId) {
   const getPremium = (watcher) => {
     const value = watcher?.get("close");
     return Number.isFinite(value) && value > 0 ? value : null;
+  };
+
+  const submitMarketOrder = (watcher, tnxType, price) => {
+    const tradingSymbol = watcher.get("tradingSymbol");
+
+    return this.serviceProvider.placeMarketOrder(this.userId, {
+      tradingSymbol,
+      symbol: tradingSymbol,
+      exchangeSegment: watcher.get("exchangeSegment"),
+      type: watcher.optionType,
+      scrip: watcher.scrip,
+      tnxType,
+      price,
+      quantity: QUANTITY,
+      productType: "NRML",
+      orderType: "MARKET",
+    });
   };
 
   const destroyWatcher = (type) => {
@@ -242,18 +259,18 @@ function OptionSellStrangle(strategyId, userId) {
         { transaction }
       );
 
+      const brokerOrder = await submitMarketOrder(watcher, "SELL", premium);
       const orderRecord = await Order.create(
         {
           positionId: positionRecord.id,
           parentId: null,
-          exchange: "nse",
+          exchange: watcher.get("exchangeSegment") || "nse",
           status: "FILLED",
           productType: "NRML",
           orderType: "MARKET",
           userId: this.userId,
-          orderId: "paper trade",
           name: `${strikePrice} ${type} ${watcher.optionExpiry}`,
-          symbol: watcher.scrip,
+          symbol: watcher.get("tradingSymbol"),
           type,
           scrip: watcher.scrip,
           tnxType: "SELL",
@@ -264,6 +281,7 @@ function OptionSellStrangle(strategyId, userId) {
           filledQuantity: QUANTITY,
           serviceProviderUserId: this.userId,
           serviceProviderName: "paper trade",
+          ...brokerOrder,
         },
         { transaction }
       );
@@ -318,6 +336,7 @@ function OptionSellStrangle(strategyId, userId) {
     const transaction = await sequelize.transaction();
 
     try {
+      const brokerOrder = await submitMarketOrder(leg.watcher, "BUY", premium);
       // Explicit exit-order payload: no copied IDs or timestamps.
       const exitOrderRecord = await Order.create(
         {
@@ -328,7 +347,6 @@ function OptionSellStrangle(strategyId, userId) {
           productType: entryOrder.productType || "NRML",
           orderType: entryOrder.orderType || "MARKET",
           userId: this.userId,
-          orderId: "exit paper trade",
           name: entryOrder.name,
           symbol: entryOrder.symbol,
           type: entryOrder.type,
@@ -341,6 +359,7 @@ function OptionSellStrangle(strategyId, userId) {
           filledQuantity: QUANTITY,
           serviceProviderUserId: this.userId,
           serviceProviderName: "paper trade",
+          ...brokerOrder,
         },
         { transaction }
       );

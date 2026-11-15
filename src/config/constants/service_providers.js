@@ -1,6 +1,7 @@
 module.exports = {
   SERVICE_PROVIDERS: {
-    KOTAKNEO: "kotaksecurities",
+    KOTAKNEO: "kotakneo",
     KITE: "zerodha",
+    PAPER_TRADE: "paper-trade",
   }
 };

@@ -1,8 +1,7 @@
 const { logger } = require("winston");
 const moment = require("moment");
 const BaseService = require("../base_service");
-const { appEvents } = require("@events");
-const { REDIS, EVENT, SCRIPS } = require("@constants");
+const { REDIS, SCRIPS } = require("@constants");
 const { redisService } = require("../redis");
 const { getErrorMessage, downloadAndParseCsv, getNiftyWeeklyExpiry, getNiftyMonthlyExpiry } = require("@utils");
 

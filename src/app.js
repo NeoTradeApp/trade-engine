@@ -5,7 +5,6 @@ const {
   niftyFuturesWatchService: niftyFutures,
   healthcheck,
 } = require("@services");
-const { kotakNeoService, webSocketService, marketDataParser } = KotakNeo;
 const { appEvents } = require("@events");
 const { EVENT, SCRIPS } = require("@constants");
 const { UserStrategies } = require("@strategies");
@@ -25,7 +24,7 @@ function App() {
 
     await this.configScrips();
     this.configWatchers();
-    await webSocketService.connect();
+    await KotakNeo.webSocketService.connect();
 
     // TODO: REMOVE
     // this.loadStrategies();
@@ -35,8 +34,9 @@ function App() {
   };
 
   this.stop = async () => {
+    // KotakNeo.orderStreamingService.disconnect();
     await redisService.disconnect();
-    webSocketService.disconnect();
+    KotakNeo.webSocketService.disconnect();
 
     removeHsConnectEvent();
     removeHsConnectEvent = null;
@@ -54,16 +54,16 @@ function App() {
   };
 
   this.configScrips = async () => {
-    await kotakNeoService.loadInstruments(SCRIPS.EXCHANGES.NSE_FO);
-    // await kotakNeoService.loadInstruments(SCRIPS.EXCHANGES.NSE_CM);
+    await KotakNeo.kotakNeoService.loadInstruments(SCRIPS.EXCHANGES.NSE_FO);
+    // await KotakNeo.kotakNeoService.loadInstruments(SCRIPS.EXCHANGES.NSE_CM);
 
-    const niftyOptionChainScrips = await kotakNeoService.loadNiftyOptionChainScrips();
-    const niftyFutScrip = await kotakNeoService.loadNiftyFuturesScrip();
-    marketDataParser.setScrips({ niftyOptionChainScrips, niftyFutScrip });
+    const niftyOptionChainScrips = await KotakNeo.kotakNeoService.loadNiftyOptionChainScrips();
+    const niftyFutScrip = await KotakNeo.kotakNeoService.loadNiftyFuturesScrip();
+    KotakNeo.marketDataParser.setScrips({ niftyOptionChainScrips, niftyFutScrip });
 
     removeHsConnectEvent = appEvents.onEvent(EVENT.HS_WEB_SOCKET.CONNECTION_OPEN, async () => {
-      await webSocketService.subscribeIndex(SCRIPS.NIFTY_50);
-      await webSocketService.subscribeScrips(Object.keys({
+      await KotakNeo.webSocketService.subscribeIndex(SCRIPS.NIFTY_50);
+      await KotakNeo.webSocketService.subscribeScrips(Object.keys({
         ...niftyOptionChainScrips,
         ...niftyFutScrip,
       }));

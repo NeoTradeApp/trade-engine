@@ -3,8 +3,8 @@ const { redisService, NiftyFuturesWatchService, NiftyOptionsWatchService } = req
 const { todayTimeIst, getNiftyWeeklyExpiry, getNiftyMonthlyExpiry } = require("@utils");
 const BaseStrategy = require("./base_strategy");
 
-function LongShortSyntheticFutures15Min(strategyId, userId) {
-  BaseStrategy.call(this, strategyId, userId);
+function LongShortSyntheticFutures15Min(strategyId, userId, options) {
+  BaseStrategy.call(this, strategyId, userId, options);
 
   const niftyMonthlyExpiry = getNiftyMonthlyExpiry();
   const niftyFutures = new NiftyFuturesWatchService(niftyMonthlyExpiry, 15, 10);
@@ -16,9 +16,9 @@ function LongShortSyntheticFutures15Min(strategyId, userId) {
   const LOT_SIZE = 65;
   const noOfLots = 1;
   const TARGET = 200;
-  const STOPLOSS = -30;
-  const TRAILING_STOPLOSS = 30;
-  const TRAIL_STOPLOSS_AT = 30;
+  const STOPLOSS = -50;
+  const TRAILING_STOPLOSS = 50;
+  const TRAIL_STOPLOSS_AT = 50;
   const TRADE_INTERVAL_IN_MINUTES = 15;
   const EMA_DISTANCE_THRESHOLD = 30;
   const BROKERAGE = 10;

@@ -6,8 +6,8 @@ const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
-function LongShortSyntheticFutures50200(strategyId, userId) {
-  BaseStrategy.call(this, strategyId, userId);
+function LongShortSyntheticFutures50200(strategyId, userId, options) {
+  BaseStrategy.call(this, strategyId, userId, options);
 
   this.strategyName = STRATEGY.LONG_SHORT_SYNTHETIC_FUTURES_50_200;
 

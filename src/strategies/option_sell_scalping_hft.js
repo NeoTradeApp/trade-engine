@@ -6,8 +6,8 @@ const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
-function OptionSellScalpingHft(strategyId, userId) {
-  BaseStrategy.call(this, strategyId, userId);
+function OptionSellScalpingHft(strategyId, userId, options) {
+  BaseStrategy.call(this, strategyId, userId, options);
 
   this.strategyName = STRATEGY.OPTION_SELL_SCALPING_HFT;
 
@@ -143,28 +143,6 @@ function OptionSellScalpingHft(strategyId, userId) {
       stoploss: pointsToAmount(STOPLOSS),
     };
   };
-
-  const prepareOrder = (niftyOption, tnxType, quantity) => ({
-    currentData: niftyOption,
-    userId: this.userId,
-    orderId: "paper trade",
-
-    name: `${niftyOption.strikePrice} ${niftyOption.optionType} ${niftyOption.optionExpiry}`,
-    symbol: niftyOption.scrip,
-
-    type: niftyOption.optionType,
-    scrip: niftyOption.scrip,
-    tnxType,
-    price: niftyOption.get("close"),
-    brokerage: BROKERAGE,
-    taxes: TAXES,
-
-    quantity,
-    filledQuantity: quantity,
-
-    serviceProviderUserId: this.userId,
-    serviceProviderName: "paper trade",
-  });
 
   const baseStop = this.stop;
   this.stop = () => {

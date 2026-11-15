@@ -47,7 +47,7 @@ function UserStrategies(userId) {
       const StrategyClass = strategiesMappings[strategyFromDB?.strategyName];
 
       if (StrategyClass) {
-        const strategy = new StrategyClass(strategyFromDB.id, this.userId);
+        const strategy = new StrategyClass(strategyFromDB.id, this.userId, strategyFromDB);
         this.strategies.push(strategy);
         strategy.start();
       }

@@ -1,18 +1,20 @@
 const moment = require("moment");
 const { logger } = require("winston");
 const { sequelize, Position, Order } = require("@models");
-const { redisService } = require("@services");
+const { redisService, kotakNeoOrdersService } = require("@services");
 const { appEvents } = require("@events")
-const { REDIS, EVENT, STRATEGY } = require("@constants")
+const { REDIS, EVENT, STRATEGY, SERVICE_PROVIDERS } = require("@constants")
 const { generateRandomId, isMarketOpen, isEmpty, selectKeys, todayTimeIst, calculateCharges, calculateBrokerage } = require("@utils");
+const { getProviderOrderService } = require("./provider_services");
 const { DEFAULT_SERVER_ID } = process.env;
 
-const { INITIATED, STARTED, ENTERED, PAUSED, STOPPED, EXITED } = STRATEGY.STATUS;
 const MARKET_TICK_INTERVAL_MS = 600;
 
-function BaseStrategy(strategyId, userId) {
+function BaseStrategy(strategyId, userId, options = {}) {
   this.strategyId = strategyId || generateRandomId(5);
   this.userId = userId;
+
+  this.serviceProvider = getProviderOrderService(options.serviceProvider);
 
   this.properties = {};
 
@@ -22,8 +24,84 @@ function BaseStrategy(strategyId, userId) {
   this.isEntered = () => !isEmpty(this.position);
   this.checkEntry = () => { };
   this.checkExit = () => { };
-  this.updatePnL = () => { };
   this.onPropertiesLoad = () => { };
+
+  this.updatePnL = () => {
+    let pnl = 0;
+    this.position.orders.forEach((order) => {
+      if (!order.currentData) return;
+
+      if (order.tnxType === "BUY") {
+        pnl += order.currentData.get("close") - order.price;
+      } else if (order.tnxType === "SELL") {
+        pnl += order.price - order.currentData.get("close");
+      }
+    })
+
+    this.position.pnl = pointsToAmount(pnl);
+  };
+
+  const submitOrdersToProvider = async (orders = []) => {
+    return await Promise.all(orders.map(async (order) => {
+      const brokerOrder = await this.serviceProvider.placeMarketOrder(this.userId, order);
+
+      return { ...order, ...brokerOrder };
+    }));
+  };
+
+  // const recalculatePositionPnl = (position) => {
+  //   const orders = position.orders || [];
+  //   const entryOrders = orders.filter((order) => !order.parentId);
+
+  //   return entryOrders.reduce((pnl, entryOrder) => {
+  //     const exitOrder = orders.find((order) => order.parentId === entryOrder.id && order.status === "FILLED");
+  //     if (!exitOrder) return pnl;
+
+  //     const quantity = Number(exitOrder.filledQuantity || entryOrder.filledQuantity || entryOrder.quantity);
+  //     const entryPrice = Number(entryOrder.price);
+  //     const exitPrice = Number(exitOrder.price);
+  //     const orderPnl = entryOrder.tnxType === "BUY"
+  //       ? (exitPrice - entryPrice) * quantity
+  //       : (entryPrice - exitPrice) * quantity;
+
+  //     return pnl + orderPnl;
+  //   }, 0);
+  // };
+
+  // const trackBrokerExecution = (position, order, isExitOrder = false) => {
+  //   // if (!usesKotakNeo() || !order.orderId || order.orderId === "paper trade") return;
+
+  //   this.serviceProvider.trackOrderExecution(this.userId, order.orderId, async (update) => {
+  //     const status = toOrderStatus(update.ordSt);
+  //     const executionPrice = Number(update.avgPrc);
+  //     const filledQuantity = Number(update.fldQty);
+  //     const orderUpdate = {
+  //       status,
+  //       filledQuantity: Number.isFinite(filledQuantity) ? filledQuantity : order.filledQuantity,
+  //     };
+
+  //     if (Number.isFinite(executionPrice) && executionPrice > 0) {
+  //       orderUpdate.price = executionPrice;
+  //       orderUpdate.taxes = calculateCharges(executionPrice, order.quantity, order.tnxType);
+  //     }
+
+  //     if (update.exOrdId) orderUpdate.remarks = `Exchange order: ${update.exOrdId}`;
+
+  //     await Order.update(orderUpdate, { where: { id: order.id } });
+  //     Object.assign(order, orderUpdate);
+
+  //     if (isExitOrder && status === "FILLED") {
+  //       const pnl = recalculatePositionPnl(position);
+  //       position.pnl = pnl;
+  //       await Position.update({ pnl }, { where: { id: position.id } });
+  //     }
+
+  //     this.position = position;
+  //     this.publishPositionToRedis();
+  //   }).catch((error) => {
+  //     logger.error("Strategy broker order tracking error:", this.constructor.name, error);
+  //   });
+  // };
 
   const parseProperties = {
     entryTime: (time) => moment(time),
@@ -108,15 +186,17 @@ function BaseStrategy(strategyId, userId) {
     const transaction = await sequelize.transaction();
     try {
       const positionInDb = await createPosition(pos, transaction);
-      const position = { ...positionInDb, ...pos };
+      const orders = await submitOrdersToProvider(pos.orders);
+      const position = { ...positionInDb, ...pos, orders };
 
-      const { orders } = pos || {};
       const ordersInDb = await createOrders(positionInDb?.id, orders, transaction);
-      transaction.commit();
+      await transaction.commit();
 
       position.orders.forEach((order, index) => {
         order.id = ordersInDb[index]?.id
       });
+
+      // position.orders.forEach((order) => trackBrokerExecution(position, order));
 
       this.updateProperties({ position });
 
@@ -176,15 +256,19 @@ function BaseStrategy(strategyId, userId) {
     const transaction = await sequelize.transaction();
     try {
       await updatePosition(position.id, closedPosition, transaction);
-      const exitOrdersInDb = await createOrders(position?.id, exitOrders, transaction);
-      transaction.commit();
+      const submittedExitOrders = await submitOrdersToProvider(exitOrders);
+      const exitOrdersInDb = await createOrders(position?.id, submittedExitOrders, transaction);
+      await transaction.commit();
 
-      exitOrders.forEach((order, index) => {
+      submittedExitOrders.forEach((order, index) => {
         order.id = exitOrdersInDb[index]?.id
       });
-      position.orders.push(...exitOrders);
+      position.orders.push(...submittedExitOrders);
 
-      this.position = { ...position, ...closedPosition };
+      // submittedExitOrders.forEach((order) => trackBrokerExecution(position, order, true));
+
+      Object.assign(position, closedPosition);
+      this.position = position;
       await this.publishPositionToRedis();
 
       this.updateProperties({ position: undefined });
@@ -198,10 +282,11 @@ function BaseStrategy(strategyId, userId) {
   this.prepareOrder = (niftyOption, tnxType, quantity) => ({
     currentData: niftyOption,
     userId: this.userId,
-    orderId: "paper trade",
 
     name: `${niftyOption.strikePrice} ${niftyOption.optionType} ${niftyOption.optionExpiry}`,
-    symbol: niftyOption.scrip,
+    symbol: niftyOption.get("tradingSymbol"),
+    tradingSymbol: niftyOption.get("tradingSymbol"),
+    exchangeSegment: niftyOption.get("exchangeSegment"),
 
     type: niftyOption.optionType,
     scrip: niftyOption.scrip,
@@ -209,10 +294,10 @@ function BaseStrategy(strategyId, userId) {
     price: niftyOption.get("close"),
     brokerage: calculateBrokerage(),
     taxes: calculateCharges(niftyOption.get("close"), quantity, tnxType),
-
     quantity,
-    filledQuantity: quantity,
 
+    filledQuantity: quantity,
+    orderId: "paper trade",
     serviceProviderUserId: this.userId,
     serviceProviderName: "paper trade",
   });

@@ -6,8 +6,8 @@ const BaseStrategy = require("./base_strategy");
 
 const { NIFTY_WEEKLY_EXPIRY } = process.env;
 
-function OptionBuyScalping1515(strategyId, userId) {
-  BaseStrategy.call(this, strategyId, userId);
+function OptionBuyScalping1515(strategyId, userId, options) {
+  BaseStrategy.call(this, strategyId, userId, options);
 
   this.strategyName = STRATEGY.OPTION_BUY_SCALPING_15_15;
 
